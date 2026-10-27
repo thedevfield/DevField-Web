@@ -1,0 +1,20 @@
+.hero { width: min(92vw,680px); min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 18px; padding: max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom)); }
+.logo { width: min(40vw,222px); height: auto; }
+.brand { margin: 0; font-size: clamp(54px,7.7vw,80px); font-weight: 780; line-height: 1; letter-spacing: -.045em; }
+.tagline { margin: 2px 0 0; font-size: clamp(24px,3.5vw,40px); line-height: 1.24; font-weight: 700; letter-spacing: -.035em; word-break: keep-all; }
+.tagline span { background: linear-gradient(90deg,var(--df-mint-start),var(--df-blue-end)); background-clip: text; color: transparent; }
+.sub { margin: 0; color: var(--df-muted); font-size: clamp(14px,1.5vw,17px); letter-spacing: .1em; }
+.actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+.cta { min-width: 172px; min-height: 54px; display: inline-flex; align-items: center; justify-content: center; padding: 0 24px; border: 1px solid rgba(199,220,240,.2); border-radius: 11px; background: rgba(16,32,55,.8); color: var(--df-white); font-size: 16px; font-weight: 680; text-decoration: none; transition: background .18s ease,border-color .18s ease; }
+.cta:hover { background: rgba(37,56,79,.9); border-color: rgba(199,220,240,.38); }
+.cta:active { background: rgba(49,68,89,.9); }
+.cta.primary { background: var(--df-mint); color: var(--df-bg); border-color: var(--df-mint); }
+.cta.primary:hover { background: #54e4d0; border-color: #54e4d0; }
+.arriving > * { animation: rise .32s both; }
+.arriving > :nth-child(2) { animation-delay: .07s; }
+.arriving > :nth-child(3) { animation-delay: .14s; }
+.arriving > :nth-child(4) { animation-delay: .21s; }
+.arriving > :nth-child(5) { animation-delay: .28s; }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width:768px) { .brand { font-size: clamp(44px,12vw,64px); } .tagline { font-size: clamp(21px,6.1vw,30px); } }
+@media (max-width:440px) { .hero { gap: 14px; } .actions { width: 100%; gap: 10px; } .cta { width: 100%; } .logo { width: min(50vw,190px); } }

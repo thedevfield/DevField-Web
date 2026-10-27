@@ -1,7 +1,7 @@
 # DevField-Web — 통합 IA 및 UI/UX 명세서
 
 > **브랜드:** DevField — `Practice. Solve. Grow.`  
-> **문서 버전:** v0.2 (통합 문서 전환 검토안)  
+> **문서 버전:** v0.5 (Slice 1 Dark Glass 시각 보정)
 > **기준일:** 2026-10-27  
 > **대상 저장소:** `thedevfield/DevField-Web`  
 > **권장 저장 위치:** `docs/ui-ux-spec.md` (파일명 고정)  
@@ -61,11 +61,11 @@
 
 | 화면 ID | 경로(제안) | 화면 | 접근 | UI 상태 | Backend 연동 |
 | --- | --- | --- | --- | --- | --- |
-| UI-COM-001 | `/` 진입 오버레이 | Splash | 비로그인 초기 진입 | 설계 제안 | 불필요 |
-| UI-COM-002 | `/` | Welcome | 비로그인 | 사용자 방향 확정·상세 설계 제안 | 세션 판별 필요 |
-| UI-AUTH-001 | `/login` | 로그인 방법 선택 | 비로그인 | 사용자 방향 확정·상세 설계 제안 | 소셜은 후속 |
+| UI-COM-001 | `/` 진입 오버레이 | Splash | 비로그인 초기 진입 | Slice 1 구현, 브라우저 시각 검증 대기 | 불필요 |
+| UI-COM-002 | `/` | Welcome | 비로그인 | Slice 1 구현, 브라우저 시각 검증 대기 | 세션 판별은 후속 |
+| UI-AUTH-001 | `/login` | 로그인 방법 선택 | 비로그인 | Slice 1 구현, 브라우저 시각 검증 대기 | 이메일·소셜은 후속 |
 | UI-AUTH-002 | `/login/email` | 이메일 로그인 | 비로그인 | 설계 제안 | Auth Phase 2-A API 구현됨, Web 미연동 |
-| UI-AUTH-003 | `/signup` | 회원가입 방법 선택 | 비로그인 | 사용자 방향 확정·상세 설계 제안 | 소셜은 후속 |
+| UI-AUTH-003 | `/signup` | 회원가입 방법 선택 | 비로그인 | Slice 1 구현, 브라우저 시각 검증 대기 | 이메일·소셜은 후속 |
 | UI-AUTH-004 | `/signup/email` | 이메일 회원가입 | 비로그인 | 설계 제안 | Auth Phase 2-A API 구현됨, Web 미연동 |
 | UI-AUTH-005 | `/signup/check-email` | 이메일 인증 안내 | 비로그인 | 설계 제안 | 가입 결과 상태 필요 |
 | UI-AUTH-006 | `/verify-email` | 이메일 인증 결과 | 비로그인 | 설계 제안 | Auth Phase 2-A API 구현됨, Web 미연동 |
@@ -100,17 +100,20 @@
 
 ## 3. DevField 공통 디자인 시스템
 
-> 색상값은 **제공된 DF 로고의 시각적 인상을 기반으로 한 근사 제안**이다. 원본 자산과 대비율을 점검한 후 확정한다. 로고의 비율·실루엣·색상 조합은 유지한다.
+> 공통 진입 화면 색상은 승인된 `DevField-Web-Interactive-UI-v1.1.html`의 외부 Splash·Welcome을 기준으로 한다. 인증 방법 선택 패널은 이 파일 안에 포함된 v0.3 화면 구성을 참고했다. 로고의 비율·실루엣·색상 조합을 유지한다.
 
 ### 3.1 컬러 토큰
 
 | 토큰 | 제안값 | 사용처 |
 | --- | --- | --- |
-| `--df-navy` | `#04102F` | Splash/Welcome 배경, 딥 네이비 브랜딩 |
+| `--df-bg` | `#050D22` | Splash/Welcome 배경 그라디언트 종점 |
+| `--df-navy` | `#04102F` | 인증 방법 선택 배경, 딥 네이비 브랜딩 |
 | `--df-navy-surface` | `#0B1E42` | 다크 테마의 카드·입력 배경 |
-| `--df-white` | `#F0F4FC` | 로고 주변 주요 텍스트 |
-| `--df-mint` | `#20DBBA` | Primary CTA, 성공/진행 강조 |
+| `--df-white` | `#F2F6FB` | Welcome 주요 텍스트 |
+| `--df-mint-start` / `--df-mint-end` | `#7CE9D7` / `#00C8B8` | 로고 에메랄드 그라디언트 |
+| `--df-mint` | `#20DBBA` | 인증 방법 선택 Primary 강조 |
 | `--df-sky` | `#47A0FB` | 포커스, 보조 포인트 |
+| `--df-blue-end` | `#73D0EA` | 로고 파란색·Welcome 문구 그라디언트 |
 | `--df-muted` | `#B6C5DD` | 안내·보조 텍스트 |
 | `--df-error` | `#FF8B96` | 오류 메시지 |
 
@@ -154,26 +157,26 @@
 | 배경 | `--df-navy` |
 | 핵심 요소 | 제공된 **DF 로고 원형 그대로** 중앙 배치 |
 | 시각 효과 | 붓이 획을 따라 그리는 듯한 Reveal → 민트·스카이블루 채움 완성 |
-| 길이 | 약 `1.4~1.7초`(설계 제안) |
-| 종료 | 짧은 Crossfade로 Welcome 등장 |
-| 재생 정책 | 같은 탭의 최초 비로그인 진입 1회 재생(제안) |
+| 길이 | 주요 획 1450ms, Welcome 전환 종료 2150ms (승인된 v1.1 원본) |
+| 종료 | 1550~2150ms 구간에서 Welcome으로 Crossfade |
+| 재생 정책 | 같은 탭 최초 진입 1회; 완료·스킵 시 `sessionStorage`에 재생 여부만 기록 |
 | 접근성 | 움직임 감소 설정에서는 생략, 사용자 스킵 가능 |
 
-제공된 PNG를 단순히 왼쪽부터 지우개처럼 표시하면 실제 붓 드로잉 효과가 나오지 않는다. **원본 DF 실루엣에 맞는 SVG 경로 또는 마스크 자산**을 준비하는 것을 권장한다. 로고의 형태를 임의로 다시 디자인하지 않는다. 자산 제작이 어려우면 로고 Fade-in을 초기 대체 효과로 사용할 수 있으나, 목표 애니메이션의 완료로 간주하지 않는다.
+승인 원본의 SVG 1~6 경로, `clipPath`, 에메랄드·화이트 이음새 underlay, 그라디언트, `strokeDashoffset`과 채움 opacity를 유지한다. 2·3번은 80ms에 함께 시작하고, 4번은 360~970ms, 5번은 900~1220ms 아래에서 위로, 파란 6번은 1180~1450ms에 진행한다. 4번 진행 중 파란색을 노출하지 않는다. RAF는 컴포넌트 해제·스킵 때 취소한다. 실제 브라우저에서 중간 프레임과 SVG 경계를 별도로 검증한다.
 
 ### 4.2 MOT-002 — Welcome 순차 Fade-up
 
-Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
+Splash 전환은 1550ms에 시작해 2150ms에 끝난다. Welcome의 로고·이름·문구·슬로건·CTA에 순차 fade-up을 적용한다. 아래 지연은 전환 시작을 기준으로 한다.
 
 | 요소 | 시작 지연 | 지속시간 | 표현 |
 | --- | ---: | ---: | --- |
-| DF 로고 | `0ms` | `320ms` | opacity + Y `10→0px` |
-| 서비스명 `DevField` | `120ms` | `380ms` | opacity + Y `12→0px` |
-| 슬로건 | `240ms` | `380ms` | opacity + Y `10→0px` |
-| 로그인 버튼 | `400ms` | `340ms` | opacity + Y `10→0px` |
-| 회원가입 버튼 | `500ms` | `340ms` | opacity + Y `10→0px` |
+| DF 로고 | `0ms` | `320ms` | opacity + Y `12→0px` |
+| 서비스명 `DevField` | `70ms` | `320ms` | opacity + Y `12→0px` |
+| 핵심 문구 | `140ms` | `320ms` | opacity + Y `12→0px` |
+| 슬로건 | `210ms` | `320ms` | opacity + Y `12→0px` |
+| 로그인·회원가입 CTA | `280ms` | `320ms` | opacity + Y `12→0px` |
 
-- 전체 등장 시간은 약 **840ms**이며, 반복 바운스/강한 Glow 효과는 사용하지 않는다.
+- 요소 등장 애니메이션은 Welcome 전환 종료 시점인 약 **600ms**에 끝나며, 반복 바운스/강한 Glow 효과는 사용하지 않는다.
 - 표시 위치를 처음부터 확보해 레이아웃 점프를 막고 `opacity`·`transform` 위주로 구현한다.
 - 버튼은 등장 애니메이션 때문에 불필요하게 조작이 제한되지 않아야 한다.
 - `prefers-reduced-motion: reduce`에서는 즉시 모든 요소를 보여준다.
@@ -183,9 +186,9 @@ Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
 
 ### UI-COM-001 — Splash
 
-- **경로:** `/` 위 오버레이(독립 라우트 아님, 제안).
+- **경로:** `/` 위 오버레이(독립 라우트 아님).
 - **목적:** 브랜드 DF 로고의 첫 노출을 짧고 인상적으로 제공.
-- **구성:** 전체 딥 네이비 배경, 가운데 DF 로고, 스킵 제어(필요 시).
+- **구성:** 전체 딥 네이비 배경, 가운데 DF 로고, 키보드로 조작 가능한 스킵 제어.
 - **상태:** `재생 중 → 종료 중 → Welcome` / `건너뜀 → Welcome` / `Reduced Motion → Welcome`.
 - **완료 기준:** 로고 비율·색상 보존, 브라우저 탭 반복 방문 시 정책 준수, 전환 중 깜빡임·무한 로딩 없음.
 
@@ -193,7 +196,7 @@ Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
 
 - **경로:** `/`.
 - **목적:** 브랜드 메시지와 로그인·회원가입 진입 제공.
-- **구성:** `DF 로고 → DevField → Practice. Solve. Grow. → 로그인 → 회원가입` 순서.
+- **구성:** `DF 로고 → DevField → 개발자의 성장은 / 여기에서 시작됩니다. → Practice. Solve. Grow. → 로그인·회원가입` 순서.
 - **Primary:** `로그인` → `/login`.
 - **Secondary:** `회원가입` → `/signup`.
 - **모션:** `MOT-002`에 정의된 순차 Fade-up.
@@ -204,6 +207,8 @@ Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
                [ DF 로고 ]
 
                  DevField
+       개발자의 성장은
+      여기에서 시작됩니다.
           Practice. Solve. Grow.
 
                [ 로그인 ]
@@ -227,7 +232,7 @@ Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
 - **경로:** `/login`.
 - **제목:** `로그인` / **설명:** `DevField에 로그인할 방법을 선택해주세요.`
 - **방법:** `이메일로 로그인`, `Google로 계속하기`, `Kakao로 계속하기`, `GitHub로 계속하기`.
-- **동작:** 이메일 → `/login/email`; 소셜은 실제 OAuth 구현 후 각각 Auth 승인 흐름 시작.
+- **동작:** Slice 1에서 이메일·소셜 모두 `준비 중` 안내를 표시한다. 이메일 → `/login/email`은 Slice 3, 소셜 Auth 승인 흐름은 Slice 4에서 활성화한다.
 - **보조 탐색:** 뒤로가기 → `/`, `계정이 없나요? 회원가입` → `/signup`.
 - **미구현 UX:** 개발 디자인 프리뷰에는 `준비 중` 비활성 표기를 허용하되, 미구현 버튼을 작동하는 로그인처럼 배포하지 않는다.
 
@@ -247,7 +252,7 @@ Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
 - **경로:** `/signup`.
 - **제목:** `회원가입` / **설명:** `DevField를 시작할 방법을 선택해주세요.`
 - **방법:** `이메일로 회원가입`, `Google로 계속하기`, `Kakao로 계속하기`, `GitHub로 계속하기`.
-- **동작:** 이메일 → `/signup/email`; 소셜 로그인/가입은 제공자별 동일 OAuth 기반으로 처리하되 진입 목적은 구분.
+- **동작:** Slice 1에서 이메일·소셜 모두 `준비 중` 안내를 표시한다. 이메일 → `/signup/email`은 Slice 2, 소셜 로그인/가입은 Slice 4에서 활성화한다.
 - **보조 탐색:** 뒤로가기 → `/`, `이미 계정이 있나요? 로그인` → `/login`.
 - **계정 정책:** 같은 이메일이라는 이유로 기존 소셜/이메일 계정을 자동 병합하지 않는다.
 
@@ -353,6 +358,23 @@ Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
 - [ ] 로그아웃 성공 후 Auth 세션 폐기·Cookie 삭제·보호 화면 차단이 확인된다.
 - [ ] CSRF·Origin 검증, 오류/장애 상태, 비밀 값 로그 노출 방지를 검증한다.
 
+### 8.4 Phase 2-B Slice 1 검증 기록
+
+- `npm run typecheck`, `npm run build`: 통과. `/`, `/login`, `/signup`, `/api/health` 빌드 라우트 확인.
+- 로컬 HTTP: `/`, `/login`, `/signup`, `/api/health` 모두 200; Health 응답 `{"status":"UP","service":"devfield-web"}`.
+- 실제 브라우저의 SVG 프레임·이음새, 320/390/768/1440px 레이아웃, 키보드·스킵·Reduced Motion 시각 검증: Computer Use 브라우저 사용 제한으로 미완료. 해당 항목은 `E2E 검증 완료`로 표기하지 않는다.
+- 이메일 폼·OAuth·Web BFF·세션·최소 앱 홈은 이번 Slice의 미구현 범위다.
+
+### 8.5 Slice 1 Dark Glass + Developer Minimal 보정 (v0.5)
+
+- `/`, `/login`, `/signup`은 Deep Navy `#081321`, Dark Surface `#102037`, Soft White `#F3F6FB`, Muted `#9EACC0`, Emerald `#29D9C1`, Sky Blue `#57B8EF`를 공통 토큰으로 쓴다. 로고 자체의 승인된 Emerald/White/Sky Blue 그라디언트는 유지한다.
+- Welcome은 강한 Glow와 장식 화살표를 제거한다. 브랜드 문구의 기존 `clamp(24px, 3.5vw, 40px)` 크기, 두 줄 구성, Splash 전환 및 등장 순서를 유지한다. CTA는 54px 높이, 11px 모서리의 절제된 Emerald/Slate 버튼을 쓴다.
+- 로그인·회원가입은 2열 소개/인증 카드 구조를 유지한다. 카드에는 14px blur, 얇은 테두리, 16px 모서리를 적용하며 blur 미지원 환경에는 불투명 Dark Surface를 사용한다. 모바일은 1열과 자연스러운 세로 스크롤을 사용한다. 장식성 진행 번호와 `AUTH EXPERIENCE` 레이블은 제거한다.
+- DF 로고 흰색 구간의 개별 `objectBoundingBox` 그라디언트는 동일 색을 공유하지 않아 접합부 색 차이가 났다. 흰색은 단일 페인트와 `gradientUnits="userSpaceOnUse"`로 칠하고, 승인된 구간별 경로는 애니메이션 마스크에 사용한다. 3·4번 경로의 y≈712–714 좌표 간격은 최소 겹침으로 보정했다. 기존 bridge underlay는 제거했다. Splash의 80/360/900/1180ms 시작 및 2150ms 전환 종료는 유지한다.
+- Google은 [공식 브랜딩 가이드](https://developers.google.com/identity/branding-guidelines)의 멀티컬러 G를 로컬 자산으로 사용하고 작은 흰색 배경에 표시한다. Kakao는 [공식 로그인 Symbol](https://developers.kakao.com/tool/resource/login)을 노란 아이콘 영역에, GitHub는 [공식 Invertocat](https://brand.github.com/foundations/logo)을 사용한다. 세 버튼은 동일한 Dark Surface·높이·테두리·Radius와 중앙 정렬 Grid를 쓴다. [Kakao 로그인 가이드](https://developers.kakao.com/docs/ko/kakaologin/design-guide)의 표준 전체 노란색 버튼과 다른 시안이므로 실제 OAuth 활성화 전에 브랜드 정책을 다시 확인한다.
+- 이메일·소셜 방법 선택 버튼은 `준비 중` 안내를 유지하며 실제 인증 요청을 하지 않는다. 화면 문구는 `개발자의 성장은 / 여기에서 시작됩니다.`와 `Practice. Solve. Grow.`를 사용한다.
+- 검증: TypeScript·Production Build 통과. 독립 Chrome 렌더링에서 Splash 중간·완료 프레임, Welcome, 로그인·가입 320/390/768/1440px를 캡처했다. 이음새는 1440px DPR 2 확대 캡처에서 D 하단 수직선을 보정한 뒤 재확인했다. `/`, `/login`, `/signup`, `/api/health` HTTP 결과와 최종 브라우저 상호작용 결과는 Slice 1 결과 보고를 따른다. 브라우저 수동 사용자 확인과 실제 OAuth 동작은 별개다.
+
 ## 9. 향후 화면 추가 위치와 작성 템플릿
 
 ### 9.1 RepoQ — 후속 설계 영역
@@ -400,14 +422,14 @@ Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
 
 | 항목 | 현재 권장 방향 | 상태 |
 | --- | --- | --- |
-| Splash 노출 빈도 | 비로그인 탭 세션 첫 진입 1회 | 설계 제안 |
-| Splash 그리기 방식 | 원본 DF 형태를 유지하는 SVG/마스크 | 설계 제안 |
-| Splash 길이 | 1.4~1.7초 | 설계 제안 |
-| Welcome 등장 | 0.84초 이내 순차 Fade-up | 사용자 방향 확정·수치 제안 |
-| Splash 라우트 | `/` 오버레이 | 설계 제안 |
+| Splash 노출 빈도 | 같은 탭 최초 진입 1회, 스킵·Reduced Motion 지원 | Slice 1 구현 |
+| Splash 그리기 방식 | 승인 v1.1 SVG 경로·마스크, 흰색 단일 페인트·접합 보정 | Slice 1 보정, Chrome 캡처 확인 |
+| Splash 길이 | 주요 획 1450ms, Welcome 전환 종료 2150ms | Slice 1 유지, Chrome 프레임 캡처 확인 |
+| Welcome 등장 | 브랜드 구성과 순차 fade-up, Dark Glass Minimal | Slice 1 보정, Chrome 캡처 확인 |
+| Splash 라우트 | `/` 오버레이 | Slice 1 구현 |
 | 로그인·가입 선택 | 서로 다른 화면에서 4가지 방법 선택 | 사용자 방향 확정 |
 | 미구현 소셜 버튼 | 프리뷰만 비활성/준비 중, 배포 시 오인 방지 | 설계 제안 |
-| 구현용 UI/CSS 도구 | 기존 Web 코드 확인 후 선정 | 미정 |
+| 구현용 UI/CSS 도구 | CSS Modules·CSS Custom Properties·SVG·RAF | Slice 1 구현 |
 | 실서비스 Cookie·CSRF 정책 | 보안·배포 도메인 점검 후 확정 | 미정 |
 | 인증 후 상세 서비스 대시보드 | 해당 제품 Slice에서 추가 | 후속 범위 |
 
@@ -417,7 +439,10 @@ Splash 종료 후 Welcome 시작 시점을 `t=0ms`로 한다.
 | --- | --- | --- | --- |
 | v0.1 | 2026-10-27 | Auth 중심 IA·화면/모션 초안 작성 | 초기 제안 |
 | **v0.2** | **2026-10-27** | **Auth 전용 문서를 DevField-Web 전체 화면의 단일 통합 문서로 재구성; 화면 ID·갱신 규칙·향후 제품 확장 템플릿 추가** | **검토안** |
+| v0.3 | 2026-10-27 | 승인 UI 프로토타입 v1.1의 Splash·Welcome·방법 선택과 Slice 1 구현 범위 반영 | 코드 구현, 브라우저 시각 검증 대기 |
+| v0.4 | 2026-10-27 | Slice 1 시각 보정: DF 로고 흰색·에메랄드 이음새 underlay, Welcome 문구 크기, 인증 진입 브랜드 문구, Google·Kakao·GitHub 공식 아이콘 적용 | 코드 보정, 브라우저 시각 재검증 대기 |
+| v0.5 | 2026-10-27 | Dark Glass + Developer Minimal 토큰과 공통 화면, 단일 흰색 SVG 페인트·경로 접합 보정, 소셜 버튼 스타일/정렬 및 Chrome 캡처 검증 | Slice 1 시각 보정 |
 
 ---
 
-**다음 작업:** 사용자 승인 후 `DevField-Web/docs/ui-ux-spec.md`에 **이 파일 하나만** 반영하고, Phase 2-B 사전점검 → Scope 확정 → 구현/검증 순서로 진행한다. 이후 RepoQ·공통 계정·추가 제품 화면도 **같은 파일을 갱신**한다. Git Commit/Push/Merge는 사용자가 직접 수행한다.
+**다음 작업:** Slice 1의 사용자 최종 시각 확인 후 Slice 2 이메일 회원가입·인증을 진행한다. 실제 OAuth를 활성화하기 전 공급자별 브랜드 정책을 재확인한다. 이후 RepoQ·공통 계정·추가 제품 화면도 **같은 파일을 갱신**한다. Git Commit/Push/Merge는 사용자가 직접 수행한다.

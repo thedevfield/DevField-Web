@@ -1,0 +1,21 @@
+:root {
+  --df-bg: #081321;
+  --df-navy: #081321;
+  --df-surface: #102037;
+  --df-white: #f3f6fb;
+  --df-muted: #9eacc0;
+  --df-mint-start: #7ce9d7;
+  --df-mint-end: #00c8b8;
+  --df-mint: #29d9c1;
+  --df-sky: #57b8ef;
+  --df-blue-end: #73d0ea;
+}
+* { box-sizing: border-box; }
+html { min-height: 100%; background: var(--df-bg); }
+body { min-height: 100%; margin: 0; color: var(--df-white); font-family: ui-sans-serif, system-ui, -apple-system, "Noto Sans KR", "Malgun Gothic", sans-serif; }
+button, a { font: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--df-sky); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
