@@ -6,7 +6,8 @@
     "dev": "next dev -p 13000 -H 127.0.0.1",
     "build": "next build",
     "start": "next start -p 13000 -H 127.0.0.1",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:bff": "node --test tests/auth-bff-http.test.mjs"
   },
   "dependencies": {
     "next": "16.4.3",

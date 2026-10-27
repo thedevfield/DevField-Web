@@ -1,8 +1,8 @@
 # DevField-Web — 통합 IA 및 UI/UX 명세서
 
 > **브랜드:** DevField — `Practice. Solve. Grow.`  
-> **문서 버전:** v0.5 (Slice 1 Dark Glass 시각 보정)
-> **기준일:** 2026-10-27  
+> **문서 버전:** v0.6.1 (로그인 상태 진입 화면 이동)
+> **기준일:** 2026-10-28  
 > **대상 저장소:** `thedevfield/DevField-Web`  
 > **권장 저장 위치:** `docs/ui-ux-spec.md` (파일명 고정)  
 > **관련 저장소:** `DevField-Auth`, `RepoQ`, `DevField-Platform`  
@@ -442,7 +442,28 @@ Splash 전환은 1550ms에 시작해 2150ms에 끝난다. Welcome의 로고·이
 | v0.3 | 2026-10-27 | 승인 UI 프로토타입 v1.1의 Splash·Welcome·방법 선택과 Slice 1 구현 범위 반영 | 코드 구현, 브라우저 시각 검증 대기 |
 | v0.4 | 2026-10-27 | Slice 1 시각 보정: DF 로고 흰색·에메랄드 이음새 underlay, Welcome 문구 크기, 인증 진입 브랜드 문구, Google·Kakao·GitHub 공식 아이콘 적용 | 코드 보정, 브라우저 시각 재검증 대기 |
 | v0.5 | 2026-10-27 | Dark Glass + Developer Minimal 토큰과 공통 화면, 단일 흰색 SVG 페인트·경로 접합 보정, 소셜 버튼 스타일/정렬 및 Chrome 캡처 검증 | Slice 1 시각 보정 |
+| v0.6 | 2026-10-27 | 이메일 가입·확인·로그인, 서버 세션, 최소 홈, OAuth 시작·인계 화면 및 보안 상태 반영 | 코드 구현, 브라우저 E2E 미검증 |
+| v0.6.1 | 2026-10-28 | 활성 세션의 `/`, `/login`, `/signup`, 이메일 폼 접근을 `/app`으로 이동; Auth 장애 시 세션 유지 안내 | 로컬 HTTP 연동 검증, 브라우저 E2E 미검증 |
 
 ---
 
-**다음 작업:** Slice 1의 사용자 최종 시각 확인 후 Slice 2 이메일 회원가입·인증을 진행한다. 실제 OAuth를 활성화하기 전 공급자별 브랜드 정책을 재확인한다. 이후 RepoQ·공통 계정·추가 제품 화면도 **같은 파일을 갱신**한다. Git Commit/Push/Merge는 사용자가 직접 수행한다.
+### Phase 2-B Slice 2·3·4 구현 상태 (v0.6)
+
+| 화면 | 경로 | 동작·상태 | 검증 상태 |
+| --- | --- | --- | --- |
+| 이메일 가입 | `/signup/email` | 표시 이름·이메일·비밀번호·확인, 필드 오류, 로딩과 중복 제출 방지, 성공 시 안내 화면 | 코드 및 HTTP 연동 확인, 브라우저 E2E 대기 |
+| 이메일 확인 안내 | `/signup/check-email` | 메일함·스팸함 확인, 직접 접근 가능, 재발송 버튼 없음 | 코드 구현 |
+| 이메일 인증 결과 | `/verify-email#token=…` | Fragment 즉시 제거, 진행·성공·무효·만료·장애, 성공 후 이메일 로그인 | HTTP 연동 확인, 브라우저 E2E 대기 |
+| 이메일 로그인 | `/login/email` | 필드 오류·로딩, 성공 시 서버가 HttpOnly 세션 Cookie 설정 | HTTP 연동 확인, 브라우저 E2E 대기 |
+| 최소 앱 홈 | `/app` | 서버 측 세션 확인, 로그아웃, 장애와 미인증 상태 구분 | HTTP 연동 확인, 브라우저 E2E 대기 |
+| OAuth 완료 | `/auth/oauth/callback` | Fragment에서 flowId·handoff 읽고 즉시 제거, 일회용 교환, 취소·실패 표시 | 코드 구현, 실제 Provider E2E 차단 |
+
+`/login`과 `/signup`의 이메일 버튼은 실제 흐름으로 이동한다. Google·Kakao·GitHub 버튼은 해당 Provider 설정과 검증이 완료되기 전까지 준비 중 상태를 유지한다. 설정된 Provider에 한하여 OAuth 시작은 최상위 브라우저 탐색으로 이어진다. 기존 Splash·Welcome·DF 로고와 공식 소셜 아이콘, Dark Glass 토큰은 유지한다.
+
+BFF는 같은 출처 Origin과 세션에 결합된 CSRF 증명을 검사한다. 인증 증명·handoff는 URL Fragment에서 즉시 제거하고, JWT·세션 핸들은 브라우저 JavaScript에 전달하지 않는다. 로그인은 HttpOnly Cookie로 유지하며 로그아웃 후 서버 세션을 폐기한다. 로컬 Web `localhost:13000`과 Auth `127.0.0.1:18080`의 호스트를 분리한다. 운영 HTTPS 도메인·Cookie와 Provider Redirect URI는 배포 전에 별도 확인한다.
+
+활성 세션으로 `/`, `/login`, `/signup`, `/login/email`, `/signup/email`에 접근하면 서버가 AUTH-14로 확인한 뒤 `/app`으로 이동한다. 세션 없음·401은 기존 Welcome 또는 인증 화면을 보여준다. Auth 장애는 세션 Cookie를 지우거나 Redirect하지 않고 재시도 안내를 표시한다.
+
+화면은 320px·390px·768px·1440px에서 확인 대상이며, 키보드 조작·Focus Visible·Reduced Motion과 직접 접근·새로고침·뒤로가기를 브라우저 E2E에서 검증해야 한다. 현재 자동 브라우저 검증은 실행되지 않았으므로 시각·접근성 또는 실제 Provider 연동 완료로 표시하지 않는다.
+
+**다음 작업:** 브라우저 E2E와 실제 Provider 콘솔 설정·인증 검증을 완료한다. 이후 RepoQ·공통 계정·추가 제품 화면도 **같은 파일을 갱신**한다. Git Commit/Push/Merge는 사용자가 직접 수행한다.

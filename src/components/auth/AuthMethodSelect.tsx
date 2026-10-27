@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { brandHeadline } from "@/components/brand/copy";
 import styles from "./AuthMethodSelect.module.css";
+import { postAuth } from "./AuthForm";
 
 type Mode = "login" | "signup";
 type Provider = "email" | "google" | "kakao" | "github";
@@ -21,11 +23,23 @@ function ProviderIcon({ provider }: { provider: Provider }) {
   return <Image src="/brands/github-invertocat-white.svg" width={22} height={22} alt="" className={styles.brandIcon} />;
 }
 
-export function AuthMethodSelect({ mode }: { mode: Mode }) {
+export function AuthMethodSelect({ mode, enabledProviders = [] }: { mode: Mode; enabledProviders?: Provider[] }) {
+  const router = useRouter();
   const [notice, setNotice] = useState("");
   const isLogin = mode === "login";
   const title = isLogin ? "로그인" : "회원가입";
   const otherHref = isLogin ? "/signup" : "/login";
+  async function choose(provider: Provider) {
+    if (provider === "email") { router.push(isLogin ? "/login/email" : "/signup/email"); return; }
+    if (!enabledProviders.includes(provider)) { setNotice(`${providerNames[provider]} 인증은 설정과 실제 검증 후 제공됩니다.`); return; }
+    try {
+      setNotice(`${providerNames[provider]} 로그인 시작 중…`);
+      const response = await postAuth("/api/auth/oauth/start", { provider });
+      const body = await response.json();
+      if (!response.ok || typeof body.authorizationUrl !== "string") throw new Error();
+      window.location.assign(body.authorizationUrl);
+    } catch { setNotice("로그인을 시작하지 못했습니다. 잠시 후 다시 시도해주세요."); }
+  }
   return <main className={styles.scene}>
     <header className={styles.header}>
       <Link href="/" className={styles.brandLink} aria-label="DevField Welcome으로"><BrandLogo className={styles.smallLogo}/><span>DevField</span></Link>
@@ -43,13 +57,13 @@ export function AuthMethodSelect({ mode }: { mode: Mode }) {
         <div className={styles.providers}>
           {providers.map((provider) => <button key={provider} type="button"
             className={`${styles.provider} ${provider === "email" ? styles.email : ""}`}
-            onClick={() => setNotice(provider === "email" ? `이메일 ${title}은 다음 Slice에서 제공됩니다.` : `${providerNames[provider]} 인증은 향후 OAuth Slice에서 제공됩니다.`)}>
+            onClick={() => void choose(provider)}>
             <span className={styles.providerIcon}><ProviderIcon provider={provider}/></span>
             <span className={styles.providerLabel}>{provider === "email" ? `이메일로 ${title}` : `${providerNames[provider]}로 계속하기`}</span>
-            <span className={styles.coming}>준비 중</span>
+            <span className={styles.coming}>{provider === "email" || enabledProviders.includes(provider) ? "→" : "준비 중"}</span>
           </button>)}
         </div>
-        <p className={styles.notice} role="status" aria-live="polite">{notice || "이메일과 소셜 인증은 아직 연결되지 않았습니다."}</p>
+        <p className={styles.notice} role="status" aria-live="polite">{notice || "설정되지 않은 소셜 인증은 준비 중입니다."}</p>
         <p className={styles.panelBottom}>{isLogin ? "계정이 없나요?" : "이미 계정이 있나요?"} <Link href={otherHref}>{isLogin ? "회원가입" : "로그인"}</Link></p>
       </section>
     </div>
