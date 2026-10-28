@@ -1,7 +1,7 @@
 # DevField-Web — 통합 IA 및 UI/UX 명세서
 
 > **브랜드:** DevField — `Practice. Solve. Grow.`  
-> **문서 버전:** v0.6.1 (로그인 상태 진입 화면 이동)
+> **문서 버전:** v0.7 (Signature Draw Splash 구현)
 > **기준일:** 2026-10-28  
 > **대상 저장소:** `thedevfield/DevField-Web`  
 > **권장 저장 위치:** `docs/ui-ux-spec.md` (파일명 고정)  
@@ -154,29 +154,29 @@
 | 속성 | 제안 |
 | --- | --- |
 | 트리거 | 비로그인 사용자의 최초 Welcome 진입 |
-| 배경 | `--df-navy` |
+| 배경 | Splash 전용 Deep Navy `#0B1220` |
 | 핵심 요소 | 제공된 **DF 로고 원형 그대로** 중앙 배치 |
-| 시각 효과 | 붓이 획을 따라 그리는 듯한 Reveal → 민트·스카이블루 채움 완성 |
-| 길이 | 주요 획 1450ms, Welcome 전환 종료 2150ms (승인된 v1.1 원본) |
-| 종료 | 1550~2150ms 구간에서 Welcome으로 Crossfade |
+| 시각 효과 | 기존 6구간 SVG 드로잉 → DevField 워드마크·슬로건 등장 → Welcome Crossfade |
+| 길이 | 파란색 마지막 획 1320ms 완료, Welcome 전환 종료 1850ms (Signature Draw) |
+| 종료 | 1370~1850ms 구간에서 Welcome으로 Crossfade |
 | 재생 정책 | 같은 탭 최초 진입 1회; 완료·스킵 시 `sessionStorage`에 재생 여부만 기록 |
 | 접근성 | 움직임 감소 설정에서는 생략, 사용자 스킵 가능 |
 
-승인 원본의 SVG 1~6 경로, `clipPath`, 에메랄드·화이트 이음새 underlay, 그라디언트, `strokeDashoffset`과 채움 opacity를 유지한다. 2·3번은 80ms에 함께 시작하고, 4번은 360~970ms, 5번은 900~1220ms 아래에서 위로, 파란 6번은 1180~1450ms에 진행한다. 4번 진행 중 파란색을 노출하지 않는다. RAF는 컴포넌트 해제·스킵 때 취소한다. 실제 브라우저에서 중간 프레임과 SVG 경계를 별도로 검증한다.
+승인 v1.1의 DF 실루엣과 6구간 구조를 유지한다. 현재 저장소의 4번 경로는 3·4번 접합부의 틈을 줄이기 위해 승인 원본에서 미세 보정된 상태다. `clipPath`, 단일 흰색 페인트와 마스크, `strokeDashoffset`·채움 opacity를 사용한다. Segment 1 에메랄드는 처음부터 보이고, 2번은 70~480ms, 3번은 95~470ms, 4번은 325~830ms, 5번은 770~1065ms, 파란 6번은 1050~1320ms에 드로잉한다. Splash 전용 팔레트는 에메랄드 `#6CF9CE`/`#34E8BE`/`#00BDAA`, 흰색 `#FFFFFF`/`#F1F5FB`/`#E7EFFC`, 파랑 `#3398FF`/`#73E5F0`이다. 워드마크와 슬로건은 980~1280ms에 opacity와 Y `8→0px`로 등장한다. RAF는 완료·스킵·컴포넌트 해제 시 정리한다. 실제 브라우저에서 중간 프레임과 SVG 경계를 별도로 검증한다.
 
 ### 4.2 MOT-002 — Welcome 순차 Fade-up
 
-Splash 전환은 1550ms에 시작해 2150ms에 끝난다. Welcome의 로고·이름·문구·슬로건·CTA에 순차 fade-up을 적용한다. 아래 지연은 전환 시작을 기준으로 한다.
+Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이름·문구·슬로건·CTA에 순차 fade-up을 적용한다. 아래 지연은 전환 시작을 기준으로 한다.
 
 | 요소 | 시작 지연 | 지속시간 | 표현 |
 | --- | ---: | ---: | --- |
-| DF 로고 | `0ms` | `320ms` | opacity + Y `12→0px` |
-| 서비스명 `DevField` | `70ms` | `320ms` | opacity + Y `12→0px` |
-| 핵심 문구 | `140ms` | `320ms` | opacity + Y `12→0px` |
-| 슬로건 | `210ms` | `320ms` | opacity + Y `12→0px` |
-| 로그인·회원가입 CTA | `280ms` | `320ms` | opacity + Y `12→0px` |
+| DF 로고 | `0ms` | `260ms` | opacity + Y `12→0px` |
+| 서비스명 `DevField` | `50ms` | `260ms` | opacity + Y `12→0px` |
+| 핵심 문구 | `100ms` | `260ms` | opacity + Y `12→0px` |
+| 슬로건 | `150ms` | `260ms` | opacity + Y `12→0px` |
+| 로그인·회원가입 CTA | `210ms` | `260ms` | opacity + Y `12→0px` |
 
-- 요소 등장 애니메이션은 Welcome 전환 종료 시점인 약 **600ms**에 끝나며, 반복 바운스/강한 Glow 효과는 사용하지 않는다.
+- 요소 등장 애니메이션은 Welcome 전환 종료 시점인 약 **470ms**에 끝나며, 반복 바운스/강한 Glow 효과는 사용하지 않는다.
 - 표시 위치를 처음부터 확보해 레이아웃 점프를 막고 `opacity`·`transform` 위주로 구현한다.
 - 버튼은 등장 애니메이션 때문에 불필요하게 조작이 제한되지 않아야 한다.
 - `prefers-reduced-motion: reduce`에서는 즉시 모든 요소를 보여준다.
@@ -423,9 +423,9 @@ Splash 전환은 1550ms에 시작해 2150ms에 끝난다. Welcome의 로고·이
 | 항목 | 현재 권장 방향 | 상태 |
 | --- | --- | --- |
 | Splash 노출 빈도 | 같은 탭 최초 진입 1회, 스킵·Reduced Motion 지원 | Slice 1 구현 |
-| Splash 그리기 방식 | 승인 v1.1 SVG 경로·마스크, 흰색 단일 페인트·접합 보정 | Slice 1 보정, Chrome 캡처 확인 |
-| Splash 길이 | 주요 획 1450ms, Welcome 전환 종료 2150ms | Slice 1 유지, Chrome 프레임 캡처 확인 |
-| Welcome 등장 | 브랜드 구성과 순차 fade-up, Dark Glass Minimal | Slice 1 보정, Chrome 캡처 확인 |
+| Splash 그리기 방식 | 승인 v1.1 실루엣·6구간, 기존 4번 접합 보정, Signature Draw 전용 팔레트 | 코드 반영, 새 타이밍의 브라우저 시각 검증 대기 |
+| Splash 길이 | 마지막 획 1320ms, Welcome 전환 종료 1850ms | 코드 반영, 브라우저 시각 검증 대기 |
+| Welcome 등장 | 기존 브랜드 구성과 470ms 내 순차 fade-up | 코드 반영, 브라우저 시각 검증 대기 |
 | Splash 라우트 | `/` 오버레이 | Slice 1 구현 |
 | 로그인·가입 선택 | 서로 다른 화면에서 4가지 방법 선택 | 사용자 방향 확정 |
 | 미구현 소셜 버튼 | 프리뷰만 비활성/준비 중, 배포 시 오인 방지 | 설계 제안 |
@@ -444,6 +444,7 @@ Splash 전환은 1550ms에 시작해 2150ms에 끝난다. Welcome의 로고·이
 | v0.5 | 2026-10-27 | Dark Glass + Developer Minimal 토큰과 공통 화면, 단일 흰색 SVG 페인트·경로 접합 보정, 소셜 버튼 스타일/정렬 및 Chrome 캡처 검증 | Slice 1 시각 보정 |
 | v0.6 | 2026-10-27 | 이메일 가입·확인·로그인, 서버 세션, 최소 홈, OAuth 시작·인계 화면 및 보안 상태 반영 | 코드 구현, 브라우저 E2E 미검증 |
 | v0.6.1 | 2026-10-28 | 활성 세션의 `/`, `/login`, `/signup`, 이메일 폼 접근을 `/app`으로 이동; Auth 장애 시 세션 유지 안내 | 로컬 HTTP 연동 검증, 브라우저 E2E 미검증 |
+| v0.7 | 2026-10-28 | Signature Draw Splash: 6구간 타이밍 단축, 전용 팔레트, DevField 워드마크, 1850ms Welcome Crossfade | 코드 반영, 브라우저 시각 검증 대기 |
 
 ---
 

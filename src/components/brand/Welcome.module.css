@@ -10,11 +10,11 @@
 .cta:active { background: rgba(49,68,89,.9); }
 .cta.primary { background: var(--df-mint); color: var(--df-bg); border-color: var(--df-mint); }
 .cta.primary:hover { background: #54e4d0; border-color: #54e4d0; }
-.arriving > * { animation: rise .32s both; }
-.arriving > :nth-child(2) { animation-delay: .07s; }
-.arriving > :nth-child(3) { animation-delay: .14s; }
-.arriving > :nth-child(4) { animation-delay: .21s; }
-.arriving > :nth-child(5) { animation-delay: .28s; }
+.arriving > * { animation: rise .26s both; }
+.arriving > :nth-child(2) { animation-delay: .05s; }
+.arriving > :nth-child(3) { animation-delay: .10s; }
+.arriving > :nth-child(4) { animation-delay: .15s; }
+.arriving > :nth-child(5) { animation-delay: .21s; }
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width:768px) { .brand { font-size: clamp(44px,12vw,64px); } .tagline { font-size: clamp(21px,6.1vw,30px); } }
 @media (max-width:440px) { .hero { gap: 14px; } .actions { width: 100%; gap: 10px; } .cta { width: 100%; } .logo { width: min(50vw,190px); } }

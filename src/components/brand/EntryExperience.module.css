@@ -1,8 +1,15 @@
-.stage { --reveal: 0; position: relative; isolation: isolate; min-height: 100svh; background: radial-gradient(ellipse at 50% 0%,rgba(87,184,239,.06),transparent 46%),var(--df-bg); overflow: hidden; }
-.welcomeLayer { position: relative; z-index: 1; min-height: 100svh; display: grid; place-items: center; opacity: var(--reveal); transform: translateY(calc(14px * (1 - var(--reveal)))) scale(calc(.985 + .015 * var(--reveal))); }
-.splashLayer { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; opacity: calc(1 - var(--reveal)); pointer-events: none; }
+.stage { --reveal: 0; position: relative; isolation: isolate; min-height: 100svh; background: var(--df-bg); overflow: hidden; }
+.welcomeLayer { position: relative; z-index: 1; min-height: 100svh; display: grid; place-items: center; opacity: var(--reveal); transform: translateY(calc(8px * (1 - var(--reveal)))) scale(calc(.99 + .01 * var(--reveal))); }
+.splashLayer { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; background: #0b1220; opacity: calc(1 - var(--reveal)); pointer-events: none; }
+.splashContent { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
 .splashLogo { width: min(42vw,420px); aspect-ratio: 1; display: grid; place-items: center; }
 .splashLogo svg { width: 100%; height: 100%; overflow: visible; }
 .splashLogo [data-fill], .splashLogo [data-brush] { opacity: 0; }
-.skip { position: absolute; right: max(20px,env(safe-area-inset-right)); bottom: max(20px,env(safe-area-inset-bottom)); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(104,131,181,.5); background: rgba(7,20,45,.72); color: #d8e8fb; font-size: 14px; pointer-events: auto; }
-@media (max-width:768px) { .splashLogo { width: min(66vw,320px); } }
+.wordmark { margin-top: -70px; display: flex; flex-direction: column; align-items: center; gap: 7px; color: #f6f8f7; opacity: 0; transform: translateY(8px); text-align: center; }
+.wordmarkName { font-size: clamp(30px,3.1vw,42px); font-weight: 760; line-height: 1.1; letter-spacing: -.045em; }
+.wordmarkSlogan { color: #bbcecd; font-size: clamp(12px,1.2vw,15px); font-weight: 500; letter-spacing: .025em; }
+.skip { position: absolute; right: max(20px,env(safe-area-inset-right)); bottom: max(20px,env(safe-area-inset-bottom)); min-height: 44px; padding: 10px 15px; border-radius: 10px; border: 1px solid #526f74; background: #182b36; color: #edf7f7; font-size: 14px; pointer-events: auto; }
+.skip:hover { background: #24414a; border-color: #7a9999; }
+@media (max-width:768px) { .splashLogo { width: min(66vw,320px); } .wordmark { margin-top: -48px; } }
+@media (max-width:440px) { .wordmark { margin-top: -40px; } .wordmarkName { font-size: 30px; } }
+@media (prefers-reduced-motion: reduce) { .splashLayer { display: none; } .welcomeLayer { opacity: 1; transform: none; } }
