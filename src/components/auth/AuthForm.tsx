@@ -55,10 +55,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
     finally { busy.current = false; setPending(false); }
   }
 
-  return <AuthSplitShell backHref={signup ? "/signup" : "/login"} section={`EMAIL / ${signup ? "CREATE ACCOUNT" : "SIGN IN"}`}>
+  return <AuthSplitShell backHref={signup ? "/signup" : "/login"} backLabel="뒤로" section={`EMAIL / ${signup ? "CREATE ACCOUNT" : "SIGN IN"}`}>
     <span className={styles.eyebrow}>EMAIL / {signup ? "CREATE ACCOUNT" : "SIGN IN"}</span>
     <h1 className={styles.title} id="auth-title">이메일로 {signup ? "회원가입" : "로그인"}</h1>
-    <p className={styles.intro}>{signup ? "기본 정보를 입력하면 확인 메일을 안내합니다." : "이메일 인증을 완료한 계정으로 로그인하세요."}</p>
+    <p className={styles.intro}>{signup ? "기본 정보를 입력하면 확인 메일을 안내합니다." : "가입한 이메일과 비밀번호를 입력해주세요."}</p>
     <form className={styles.form} onSubmit={submit} noValidate>
       {fields.map(field => <FormField key={field} id={field} label={labels[field]} error={errors[field]}>
         {field === "password" || field === "confirm" ? <span className={styles.password}>
@@ -69,6 +69,6 @@ export function AuthForm({ mode }: { mode: Mode }) {
       <Button className={styles.submit} disabled={pending} type="submit" aria-busy={pending}>{pending ? "처리 중…" : signup ? "회원가입" : "로그인"}</Button>
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </form>
-    <nav className={styles.links}><Link href={signup ? "/signup" : "/login"}>방법 선택으로</Link><Link href={signup ? "/login" : "/signup"}>{signup ? "로그인" : "회원가입"}</Link></nav>
+    <nav className={styles.bottomLink} aria-label={signup ? "로그인 안내" : "회원가입 안내"}>{signup ? "이미 계정이 있나요?" : "계정이 없나요?"} <Link href={signup ? "/login" : "/signup"}>{signup ? "로그인" : "회원가입"}</Link></nav>
   </AuthSplitShell>;
 }

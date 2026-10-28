@@ -109,7 +109,7 @@ export function stringField(body: Record<string, unknown>, key: string, max: num
   return value;
 }
 
-export async function authPost(path: string, body?: object, handle?: string): Promise<{ status: number; data: Record<string, unknown> }> {
+export async function authPost(path: string, body?: object, handle?: string, method: "POST" | "DELETE" = "POST"): Promise<{ status: number; data: Record<string, unknown> }> {
   const key = process.env.DEVFIELD_BFF_SERVICE_KEY;
   if (!key || !origin()) throw new BffError(503, "web_configuration_error");
   let target: URL;
@@ -122,7 +122,7 @@ export async function authPost(path: string, body?: object, handle?: string): Pr
   let response: Response;
   try {
     response = await fetch(target, {
-      method: "POST", cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(5000),
+      method, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(5000),
       headers: { "Content-Type": "application/json", "X-DevField-Service": "bff", "X-DevField-Service-Key": key,
         ...(handle ? { "X-DevField-Session-Handle": handle } : {}) },
       body: body ? JSON.stringify(body) : undefined,
@@ -149,6 +149,7 @@ export async function authPost(path: string, body?: object, handle?: string): Pr
     if (!data || Array.isArray(data) || typeof data !== "object") throw new Error();
   } catch { throw new BffError(503, "auth_unavailable"); }
   if (response.ok) return { status: response.status, data };
+  if (response.status === 403 && data.code === "reauth_required") throw new BffError(403, "reauth_required");
   if ([400, 409, 410, 429, 503].includes(response.status) && typeof data.code === "string" && /^[a-z_]{1,50}$/.test(data.code))
     throw new BffError(response.status, data.code);
   if (response.status === 401) throw new BffError(401, "invalid_session");
@@ -239,7 +240,9 @@ export async function authEntryState(): Promise<"active" | "anonymous" | "forbid
 }
 
 export async function setSession(handle: string) {
-  (await cookies()).set(sessionName, handle, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: 86400 });
+  const jar = await cookies();
+  jar.set(sessionName, handle, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: 86400 });
+  jar.set("DF_ACCOUNT_REAUTH", "", { path: "/api/account", maxAge: 0 });
   await csrfRotate();
 }
 
@@ -247,4 +250,8 @@ export async function clearSession() {
   const jar = await cookies();
   jar.delete(sessionName);
   jar.delete(csrfName);
+  jar.set("DF_ACCOUNT_REAUTH", "", { path: "/api/account", maxAge: 0 });
+  for (const cookie of jar.getAll()) {
+    if (cookie.name.startsWith("DF_ACCOUNT_OAUTH_")) jar.delete(cookie.name);
+  }
 }
