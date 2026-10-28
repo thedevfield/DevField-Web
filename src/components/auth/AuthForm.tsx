@@ -3,7 +3,10 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import styles from "./AuthFlow.module.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { AuthSplitShell, authStudioStyles as styles } from "./AuthSplitShell";
+import { FormField } from "./FormField";
 
 type Mode = "signup" | "login";
 
@@ -52,21 +55,20 @@ export function AuthForm({ mode }: { mode: Mode }) {
     finally { busy.current = false; setPending(false); }
   }
 
-  return <main className={styles.scene}><section className={styles.card} aria-labelledby="auth-title">
-    <Link className={styles.brand} href="/">DevField · Practice. Solve. Grow.</Link>
+  return <AuthSplitShell backHref={signup ? "/signup" : "/login"} section={`EMAIL / ${signup ? "CREATE ACCOUNT" : "SIGN IN"}`}>
+    <span className={styles.eyebrow}>EMAIL / {signup ? "CREATE ACCOUNT" : "SIGN IN"}</span>
     <h1 className={styles.title} id="auth-title">이메일로 {signup ? "회원가입" : "로그인"}</h1>
-    <p className={styles.help}>{signup ? "정보를 입력하면 인증 가능한 주소로 확인 메일을 안내합니다." : "이메일 인증을 완료한 계정으로 로그인하세요."}</p>
+    <p className={styles.intro}>{signup ? "기본 정보를 입력하면 확인 메일을 안내합니다." : "이메일 인증을 완료한 계정으로 로그인하세요."}</p>
     <form className={styles.form} onSubmit={submit} noValidate>
-      {fields.map(field => <label className={styles.field} key={field} htmlFor={field}>{labels[field]}
+      {fields.map(field => <FormField key={field} id={field} label={labels[field]} error={errors[field]}>
         {field === "password" || field === "confirm" ? <span className={styles.password}>
-          <input id={field} className={styles.input} ref={node => { refs.current[field] = node; }} type={visible ? "text" : "password"} value={values[field]} onChange={e => setValues({ ...values, [field]: e.target.value })} autoComplete={field === "confirm" ? "new-password" : signup ? "new-password" : "current-password"} aria-invalid={!!errors[field]} aria-describedby={errors[field] ? `${field}-error` : undefined} maxLength={256} />
+          <Input id={field} name={field} className={styles.input} ref={node => { refs.current[field] = node; }} type={visible ? "text" : "password"} value={values[field]} onChange={e => setValues({ ...values, [field]: e.target.value })} autoComplete={field === "confirm" ? "new-password" : signup ? "new-password" : "current-password"} aria-invalid={!!errors[field]} aria-describedby={errors[field] ? `${field}-error` : undefined} maxLength={256} placeholder={field === "confirm" ? "한 번 더 입력하세요" : signup ? "12자 이상 입력하세요" : "비밀번호를 입력하세요"} />
           {field === "password" && <button className={styles.toggle} type="button" aria-label={visible ? "비밀번호 숨기기" : "비밀번호 표시"} onClick={() => setVisible(!visible)}>{visible ? "숨김" : "표시"}</button>}
-        </span> : <input id={field} className={styles.input} ref={node => { refs.current[field] = node; }} type={field === "email" ? "email" : "text"} value={values[field]} onChange={e => setValues({ ...values, [field]: e.target.value })} autoComplete={field === "email" ? "email" : "nickname"} aria-invalid={!!errors[field]} aria-describedby={errors[field] ? `${field}-error` : undefined} maxLength={field === "email" ? 320 : 100} />}
-        {errors[field] && <p className={styles.error} id={`${field}-error`}>{errors[field]}</p>}
-      </label>)}
-      <button className={styles.button} disabled={pending} type="submit">{pending ? "처리 중…" : signup ? "회원가입" : "로그인"}</button>
+        </span> : <Input id={field} name={field} className={styles.input} ref={node => { refs.current[field] = node; }} type={field === "email" ? "email" : "text"} value={values[field]} onChange={e => setValues({ ...values, [field]: e.target.value })} autoComplete={field === "email" ? "email" : "nickname"} aria-invalid={!!errors[field]} aria-describedby={errors[field] ? `${field}-error` : undefined} maxLength={field === "email" ? 320 : 100} placeholder={field === "email" ? "name@example.com" : "어떻게 불러드릴까요?"} />}
+      </FormField>)}
+      <Button className={styles.submit} disabled={pending} type="submit" aria-busy={pending}>{pending ? "처리 중…" : signup ? "회원가입" : "로그인"}</Button>
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </form>
     <nav className={styles.links}><Link href={signup ? "/signup" : "/login"}>방법 선택으로</Link><Link href={signup ? "/login" : "/signup"}>{signup ? "로그인" : "회원가입"}</Link></nav>
-  </section></main>;
+  </AuthSplitShell>;
 }

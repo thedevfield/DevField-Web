@@ -3,8 +3,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { postAuth } from "./AuthForm";
 import styles from "./AuthFlow.module.css";
+import studioStyles from "./AuthStudio.module.css";
 
-export function LogoutButton() {
+export function LogoutButton({ studio = false }: { studio?: boolean }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -18,5 +19,5 @@ export function LogoutButton() {
     } catch { setError("로그아웃을 완료하지 못했습니다. 다시 시도해주세요."); }
     finally { setPending(false); }
   }
-  return <><button type="button" className={styles.button} onClick={logout} disabled={pending}>{pending ? "처리 중…" : "로그아웃"}</button><p className={styles.error} role="alert">{error}</p></>;
+  return <><button type="button" className={studio ? studioStyles.submit : styles.button} onClick={logout} disabled={pending}>{pending ? "처리 중…" : "로그아웃"}</button><p className={studio ? studioStyles.error : styles.error} role="alert">{error}</p></>;
 }
