@@ -1,13 +1,13 @@
 # DevField-Web — 통합 IA 및 UI/UX 명세서
 
 > **브랜드:** DevField — `Practice. Solve. Grow.`  
-> **문서 버전:** v0.7 (Signature Draw Splash 구현)
+> **문서 버전:** v0.8 (Studio Editorial Tech 공통 인증 UI 구현)
 > **기준일:** 2026-10-28  
 > **대상 저장소:** `thedevfield/DevField-Web`  
 > **권장 저장 위치:** `docs/ui-ux-spec.md` (파일명 고정)  
 > **관련 저장소:** `DevField-Auth`, `RepoQ`, `DevField-Platform`  
 > **근거:** DevField-Auth Phase 2-A 구현 상태, DevField-Web 초기 구조, DevField-Platform 인증 계약 및 RepoQ PRD  
-> **현재 상태:** 화면 기획·설계안. 구현 상태는 저장소 확인과 테스트 결과로 별도 판정한다.
+> **현재 상태:** Splash와 공통 인증 UI는 코드 구현. 실제 인증 브라우저 E2E는 별도 판정한다.
 
 ## 1. 목적과 문서 관리 원칙
 
@@ -63,12 +63,13 @@
 | --- | --- | --- | --- | --- | --- |
 | UI-COM-001 | `/` 진입 오버레이 | Splash | 비로그인 초기 진입 | Slice 1 구현, 브라우저 시각 검증 대기 | 불필요 |
 | UI-COM-002 | `/` | Welcome | 비로그인 | Slice 1 구현, 브라우저 시각 검증 대기 | 세션 판별은 후속 |
-| UI-AUTH-001 | `/login` | 로그인 방법 선택 | 비로그인 | Slice 1 구현, 브라우저 시각 검증 대기 | 이메일·소셜은 후속 |
-| UI-AUTH-002 | `/login/email` | 이메일 로그인 | 비로그인 | 설계 제안 | Auth Phase 2-A API 구현됨, Web 미연동 |
-| UI-AUTH-003 | `/signup` | 회원가입 방법 선택 | 비로그인 | Slice 1 구현, 브라우저 시각 검증 대기 | 이메일·소셜은 후속 |
-| UI-AUTH-004 | `/signup/email` | 이메일 회원가입 | 비로그인 | 설계 제안 | Auth Phase 2-A API 구현됨, Web 미연동 |
-| UI-AUTH-005 | `/signup/check-email` | 이메일 인증 안내 | 비로그인 | 설계 제안 | 가입 결과 상태 필요 |
-| UI-AUTH-006 | `/verify-email` | 이메일 인증 결과 | 비로그인 | 설계 제안 | Auth Phase 2-A API 구현됨, Web 미연동 |
+| UI-AUTH-001 | `/login` | 로그인 방법 선택 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | 이메일 연결; 검증 전 소셜 비활성 |
+| UI-AUTH-002 | `/login/email` | 이메일 로그인 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | Auth BFF 연동 |
+| UI-AUTH-003 | `/signup` | 회원가입 방법 선택 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | 이메일 연결; 검증 전 소셜 비활성 |
+| UI-AUTH-004 | `/signup/email` | 이메일 회원가입 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | Auth BFF 연동 |
+| UI-AUTH-005 | `/signup/check-email` | 이메일 인증 안내 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | 가입 후 안내 |
+| UI-AUTH-006 | `/verify-email` | 이메일 인증 결과 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | Auth BFF 연동 |
+| UI-AUTH-007 | `/auth/oauth/callback` | OAuth 완료·오류 | Provider 복귀 | Studio v2.1 UI 코드 구현, 실제 Provider E2E 대기 | 일회용 handoff BFF |
 | UI-COM-003 | `/app` | 로그인 후 최소 홈 | 로그인 필요 | 설계 제안 | 세션 조회·로그아웃 연동 필요 |
 
 **이후 추가될 영역:** `RepoQ`(프로젝트 등록/분석, 자유연습, 모의면접, 평가/이력), `계정 설정`(소셜 연결, 비밀번호, 탈퇴), `AlgoField`, `InfraField`. 해당 화면의 **정확한 라우트와 구성은 각 기능을 설계할 때 이 표와 본문에 추가**한다. 아직 승인하지 않은 상세 페이지/경로를 미리 확정하지 않는다.
@@ -146,6 +147,26 @@
 | 서비스 장애 (`503`/네트워크) | 실패·재시도 안내, 성공을 거짓 표시하지 않음 |
 
 모든 실제 액션은 키보드로 조작할 수 있어야 한다. 포커스 링, 명시적 `label`, 오류와 입력 연결, `autocomplete`, `prefers-reduced-motion`을 지원한다. 뒤로가기·새로고침·직접 URL 입력에서도 정상 동작해야 한다.
+
+### 3.4 Studio Editorial Tech 인증 화면 구현 기준 (v0.8)
+
+`design-preview/DevField-Studio-Editorial-Tech-v2.1.html`의 인증 영역을 구현했다. 이 절은 3.1~3.2의 초기 Dark Glass 제안보다 **인증 화면에 우선**한다. Splash·Welcome 및 `/app`의 디자인 토큰은 변경하지 않는다.
+
+| 의미 토큰 | 값 | 인증 화면 사용처 |
+| --- | --- | --- |
+| Ink Navy | `#0B1220` | Dark Brand 패널, 주요 버튼 |
+| Soft Canvas | `#F6F8F7` | Light Auth 배경 |
+| Emerald | `#21C7A8` | 브랜드 헤드라인·핵심 강조 |
+| Deep Emerald | `#087F6D` | Light Auth 링크·포커스 |
+| Surface | `#FFFFFF` | 입력·상태 카드 |
+| Text / Muted / Line / Danger | `#172230` / `#667382` / `#DCE4E1` / `#B94048` | 본문·보조 문구·경계·오류 |
+
+- 모든 인증 화면은 `AuthSplitShell`과 `BrandPanel`을 공유한다. 데스크톱은 Dark Brand 44%와 Light Auth 56%의 2열 구성, 820px 이하에서는 브랜드를 상단에 유지한 단일 열이다. 320px에서도 폼과 버튼이 가로로 넘치지 않아야 한다.
+- 공통 브랜드 문구는 `DEVELOPER GROWTH PLATFORM` / `연습하고, 도전하고, 성장하는 공간.` / `기술면접부터 코딩 테스트, 인프라 문제 해결까지. DevField에서 나만의 속도로 실력을 쌓아가세요.` / `Practice. Solve. Grow.`로 고정한다. 오른쪽 제목·설명·상태만 화면 목적에 따라 다르다.
+- `BrandLogo`의 기존 SVG를 재사용한다. 인증 데스크톱 브랜드 크기는 심볼 62px·워드마크 34px, 모바일은 48px·26px이다. 공식 Google·Kakao·GitHub 자산을 재사용하고, 설정·검증 전 제공자는 `준비 중`으로 비활성화한다.
+- Tailwind CSS v4는 `@theme inline`에서 DevField 색상과 shadcn 의미 토큰(`background`·`foreground`·`primary`·`secondary`·`muted`·`accent`·`destructive`·`border`·`input`·`ring`·`radius`)을 연결한다. Preflight는 불러오지 않아 기존 CSS Modules 및 전역 스타일을 보존한다. shadcn/ui Button·Input은 이메일 폼에 사용한다. GSAP은 인증 콘텐츠의 단발 진입에만 사용하고 Reduced Motion에서는 생략한다. Hover·Focus는 CSS로 처리한다.
+- `FormField`는 label·오류 연결을, `StatusView`는 메일 안내·인증 결과·OAuth 상태를 공통 처리한다. 이 UI 변경은 이메일/OAuth BFF 호출, Fragment 즉시 제거, CSRF, HttpOnly Cookie 및 서버 세션 판정을 바꾸지 않는다.
+- 코드 구현과 정적 검증은 브라우저 E2E 완료와 다르다. 실제 Provider 동작·메일 링크·세션 유지·로그아웃은 연동 가능한 환경에서 별도 검증한다.
 
 ## 4. 애니메이션 및 화면 전환
 
@@ -429,7 +450,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | Splash 라우트 | `/` 오버레이 | Slice 1 구현 |
 | 로그인·가입 선택 | 서로 다른 화면에서 4가지 방법 선택 | 사용자 방향 확정 |
 | 미구현 소셜 버튼 | 프리뷰만 비활성/준비 중, 배포 시 오인 방지 | 설계 제안 |
-| 구현용 UI/CSS 도구 | CSS Modules·CSS Custom Properties·SVG·RAF | Slice 1 구현 |
+| 구현용 UI/CSS 도구 | 기존 CSS Modules·SVG·RAF 유지, 인증 영역에 Tailwind v4·shadcn/ui·GSAP 선택 적용 | 코드 구현, 브라우저 검증 대기 |
 | 실서비스 Cookie·CSRF 정책 | 보안·배포 도메인 점검 후 확정 | 미정 |
 | 인증 후 상세 서비스 대시보드 | 해당 제품 Slice에서 추가 | 후속 범위 |
 
@@ -445,6 +466,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | v0.6 | 2026-10-27 | 이메일 가입·확인·로그인, 서버 세션, 최소 홈, OAuth 시작·인계 화면 및 보안 상태 반영 | 코드 구현, 브라우저 E2E 미검증 |
 | v0.6.1 | 2026-10-28 | 활성 세션의 `/`, `/login`, `/signup`, 이메일 폼 접근을 `/app`으로 이동; Auth 장애 시 세션 유지 안내 | 로컬 HTTP 연동 검증, 브라우저 E2E 미검증 |
 | v0.7 | 2026-10-28 | Signature Draw Splash: 6구간 타이밍 단축, 전용 팔레트, DevField 워드마크, 1850ms Welcome Crossfade | 코드 반영, 브라우저 시각 검증 대기 |
+| v0.8 | 2026-10-28 | Issue #2: Studio Editorial Tech 공통 Auth Split Layout, 의미 토큰, 공통 브랜드 문구, 폼·상태 UI 및 Tailwind v4·shadcn/ui·GSAP 도입 | 코드 반영, 실제 Auth 브라우저 E2E 대기 |
 
 ---
 
@@ -459,7 +481,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | 최소 앱 홈 | `/app` | 서버 측 세션 확인, 로그아웃, 장애와 미인증 상태 구분 | HTTP 연동 확인, 브라우저 E2E 대기 |
 | OAuth 완료 | `/auth/oauth/callback` | Fragment에서 flowId·handoff 읽고 즉시 제거, 일회용 교환, 취소·실패 표시 | 코드 구현, 실제 Provider E2E 차단 |
 
-`/login`과 `/signup`의 이메일 버튼은 실제 흐름으로 이동한다. Google·Kakao·GitHub 버튼은 해당 Provider 설정과 검증이 완료되기 전까지 준비 중 상태를 유지한다. 설정된 Provider에 한하여 OAuth 시작은 최상위 브라우저 탐색으로 이어진다. 기존 Splash·Welcome·DF 로고와 공식 소셜 아이콘, Dark Glass 토큰은 유지한다.
+`/login`과 `/signup`의 이메일 버튼은 실제 흐름으로 이동한다. Google·Kakao·GitHub 버튼은 해당 Provider 설정과 검증이 완료되기 전까지 준비 중 상태를 유지한다. 설정된 Provider에 한하여 OAuth 시작은 최상위 브라우저 탐색으로 이어진다. 기존 Splash·Welcome·DF 로고와 공식 소셜 아이콘은 유지한다. 인증 화면은 v0.8에서 Dark Brand + Light Auth로 변경했다.
 
 BFF는 같은 출처 Origin과 세션에 결합된 CSRF 증명을 검사한다. 인증 증명·handoff는 URL Fragment에서 즉시 제거하고, JWT·세션 핸들은 브라우저 JavaScript에 전달하지 않는다. 로그인은 HttpOnly Cookie로 유지하며 로그아웃 후 서버 세션을 폐기한다. 로컬 Web `localhost:13000`과 Auth `127.0.0.1:18080`의 호스트를 분리한다. 운영 HTTPS 도메인·Cookie와 Provider Redirect URI는 배포 전에 별도 확인한다.
 

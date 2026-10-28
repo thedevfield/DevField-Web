@@ -1,4 +1,50 @@
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+
+/* Preflight is intentionally omitted while legacy CSS Modules remain in use. */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-auth-ink: #0b1220;
+  --color-auth-canvas: #f6f8f7;
+  --color-auth-emerald: #21c7a8;
+  --color-auth-deep: #087f6d;
+  --color-auth-surface: #ffffff;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * .6);
+  --radius-md: calc(var(--radius) * .8);
+  --radius-lg: var(--radius);
+}
+
 :root {
+  --background: #f6f8f7;
+  --foreground: #172230;
+  --primary: #0b1220;
+  --primary-foreground: #ffffff;
+  --secondary: #eaf8f1;
+  --secondary-foreground: #087f6d;
+  --muted: #eef2f0;
+  --muted-foreground: #52625d;
+  --accent: #eaf8f1;
+  --accent-foreground: #0b1220;
+  --destructive: #b94048;
+  --border: #dce4e1;
+  --input: #cfdad6;
+  --ring: #087f6d;
+  --radius: .625rem;
   --df-bg: #081321;
   --df-navy: #081321;
   --df-surface: #102037;

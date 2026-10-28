@@ -1,9 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { postAuth } from "./AuthForm";
-import styles from "./AuthFlow.module.css";
+import { StatusView } from "./StatusView";
 
 export function OAuthCallback() {
   const router = useRouter();
@@ -31,5 +30,9 @@ export function OAuthCallback() {
       } catch { setStatus("인증 서비스에 연결할 수 없습니다. 다시 시도해주세요."); }
     })();
   }, [router]);
-  return <main className={styles.scene}><section className={styles.card} aria-live="polite"><Link className={styles.brand} href="/">DevField</Link><h1 className={styles.title}>소셜 로그인</h1><p className={styles.help}>{status}</p><nav className={styles.links}><Link href="/login">로그인 방법으로</Link></nav></section></main>;
+  const working = status === "로그인 처리 중입니다.";
+  const cancelled = status.startsWith("인증이 취소");
+  return <StatusView eyebrow="SOCIAL AUTH / CALLBACK" title={working ? "로그인 처리 중" : cancelled ? "인증이 취소되었습니다" : "로그인을 완료하지 못했습니다"}
+    description={status} tone={working ? "working" : cancelled ? "warning" : "error"}
+    primary={{ href: "/login", label: "로그인 방법으로" }} />;
 }
