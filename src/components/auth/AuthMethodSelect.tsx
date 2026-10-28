@@ -35,8 +35,8 @@ export function AuthMethodSelect({ mode, enabledProviders = [] }: { mode: Mode; 
     busy.current = true;
     setPendingProvider(provider);
     try {
-      setNotice(`${providerNames[provider]} 로그인 시작 중…`);
-      const response = await postAuth("/api/auth/oauth/start", { provider });
+      setNotice(`${providerNames[provider]} ${isLogin ? "로그인" : "회원가입"} 시작 중…`);
+      const response = await postAuth("/api/auth/oauth/start", { provider, intent: isLogin ? "LOGIN" : "SIGNUP" });
       const body = await response.json();
       if (!response.ok || typeof body.authorizationUrl !== "string") throw new Error();
       window.location.assign(body.authorizationUrl);
@@ -49,8 +49,8 @@ export function AuthMethodSelect({ mode, enabledProviders = [] }: { mode: Mode; 
 
   return <AuthSplitShell section={`ACCOUNT / ${isLogin ? "SIGN IN" : "CREATE"}`}>
     <span className={styles.eyebrow}>ACCOUNT / {isLogin ? "SIGN IN" : "CREATE"}</span>
-    <h1 className={styles.title}>{isLogin ? "다시 오신 것을 환영합니다." : "DevField에서 성장을 시작하세요."}</h1>
-    <p className={styles.intro}>{isLogin ? "DevField에 로그인할 방법을 선택해주세요." : "DevField를 시작할 방법을 선택해주세요."}</p>
+    <h1 className={styles.title}>{isLogin ? "DevField에 로그인하세요." : "DevField에서 성장을 시작하세요."}</h1>
+    <p className={styles.intro}>{isLogin ? "계정으로 로그인하고 학습을 이어가세요." : "DevField를 시작할 방법을 선택해주세요."}</p>
     <div className={styles.providers}>
       {providers.map((provider, index) => <div key={provider}>
         {index === 1 && <div className={styles.separator}>또는</div>}

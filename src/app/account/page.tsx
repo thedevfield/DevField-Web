@@ -4,11 +4,11 @@ import { accountMe, BffError, type AccountProfile } from "@/lib/server/auth";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHome";
 import { CopyUserId } from "./CopyUserId";
 import styles from "./page.module.css";
+import { AccountMethods } from "./AccountMethods";
+import { providerEnabled } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "내 계정 | DevField", robots: { index: false, follow: false } };
-
-const providerNames = { GOOGLE: "Google", GITHUB: "GitHub", KAKAO: "Kakao" };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className={styles.field}><dt>{label}</dt><dd>{children}</dd></div>;
@@ -17,10 +17,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function AccountDetails({ profile }: { profile: AccountProfile }) {
   const deleting = profile.deletionStatus === "DELETING";
   return <main id="account-main" className={styles.main}>
+    <Link className={styles.backLink} href="/app"><span aria-hidden="true">←</span> Workspace로 돌아가기</Link>
     <div className={styles.intro}>
       <div><p className={styles.eyebrow}>ACCOUNT / OVERVIEW</p>
       <h1>내 계정</h1></div>
-      <Link className={styles.backLink} href="/app">Workspace로 돌아가기 <span aria-hidden="true">↗</span></Link>
     </div>
     <p className={styles.description}>DevField에 저장된 계정 정보와 연결된 로그인 수단을 확인하세요.</p>
     {deleting && <section className={styles.notice} role="status" aria-label="계정 삭제 진행 상태">
@@ -39,11 +39,9 @@ function AccountDetails({ profile }: { profile: AccountProfile }) {
       </section>
       <section className={styles.card} aria-labelledby="login-methods-title">
         <p className={styles.cardEyebrow}>02 / ACCESS</p><h2 id="login-methods-title">로그인 수단</h2>
-        <dl>
-          <Field label="이메일 로그인">{profile.emailLoginEnabled ? "사용 가능" : "사용 불가"}</Field>
-          <Field label="연결된 소셜 Provider">{profile.socialProviders.length ? <ul className={styles.providers}>{profile.socialProviders.map(provider => <li key={provider}>{providerNames[provider]}</li>)}</ul> : <span className={styles.emptyValue}>연결된 소셜 Provider가 없습니다</span>}</Field>
-        </dl>
-        <p className={styles.hint}>표시된 Provider는 계정에 연결된 목록입니다.</p>
+        <p className={styles.accessIntro}>DevField에 로그인할 수 있는 수단을 관리합니다.</p>
+        <div className={styles.emailMethod}><strong>이메일 로그인</strong><span>{profile.emailLoginEnabled ? "사용 가능" : "사용 불가"}</span></div>
+        <AccountMethods profile={profile} enabled={( ["google", "github", "kakao"] as const).filter(providerEnabled)} />
       </section>
     </div>
   </main>;
