@@ -1,11 +1,11 @@
 import { useId } from "react";
 import { brushPaths, logoPaths } from "./logoPaths";
 
-type BrandLogoProps = { animated?: boolean; className?: string };
+type BrandLogoProps = { animated?: boolean; signature?: boolean; className?: string };
 
 const brushWidths = [154, 154, 132, 114, 108] as const;
 
-export function BrandLogo({ animated = false, className }: BrandLogoProps) {
+export function BrandLogo({ animated = false, signature = false, className }: BrandLogoProps) {
   const prefix = useId().replace(/:/g, "");
   const mint = `${prefix}-mint`;
   const white = `${prefix}-white`;
@@ -26,18 +26,18 @@ export function BrandLogo({ animated = false, className }: BrandLogoProps) {
     aria-label={animated ? "DevField DF 로고 애니메이션" : "DevField DF 로고"}>
     <defs>
       <linearGradient id={mint} x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#7CE9D7" />
-        <stop offset="60%" stopColor="#35D9C0" />
-        <stop offset="100%" stopColor="#00C8B8" />
+        <stop offset="0%" stopColor={signature ? "#6CF9CE" : "#7CE9D7"} />
+        <stop offset="60%" stopColor={signature ? "#34E8BE" : "#35D9C0"} />
+        <stop offset="100%" stopColor={signature ? "#00BDAA" : "#00C8B8"} />
       </linearGradient>
       <linearGradient id={white} gradientUnits="userSpaceOnUse" x1="188" y1="293" x2="871" y2="714">
-        <stop offset="0%" stopColor="#F5F8FC" />
-        <stop offset="55%" stopColor="#EEF3F9" />
-        <stop offset="100%" stopColor="#DFE6F0" />
+        <stop offset="0%" stopColor={signature ? "#FFFFFF" : "#F5F8FC"} />
+        <stop offset="55%" stopColor={signature ? "#F1F5FB" : "#EEF3F9"} />
+        <stop offset="100%" stopColor={signature ? "#E7EFFC" : "#DFE6F0"} />
       </linearGradient>
       <linearGradient id={blue} x1="0%" y1="50%" x2="100%" y2="50%">
-        <stop offset="0%" stopColor="#3D99F4" />
-        <stop offset="100%" stopColor="#73D0EA" />
+        <stop offset="0%" stopColor={signature ? "#3398FF" : "#3D99F4"} />
+        <stop offset="100%" stopColor={signature ? "#73E5F0" : "#73D0EA"} />
       </linearGradient>
       {animated && [1, 2, 3, 4, 5, 6].map((number) =>
         <clipPath id={clip(number)} key={number}><path d={logoPaths[number - 1]} /></clipPath>)}
