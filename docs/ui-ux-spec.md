@@ -1,7 +1,7 @@
 # DevField-Web — 통합 IA 및 UI/UX 명세서
 
 > **브랜드:** DevField — `Practice. Solve. Grow.`  
-> **문서 버전:** v0.8 (Studio Editorial Tech 공통 인증 UI 구현)
+> **문서 버전:** v0.9 (Studio Editorial Tech 공통 Workspace 구현)
 > **기준일:** 2026-10-28  
 > **대상 저장소:** `thedevfield/DevField-Web`  
 > **권장 저장 위치:** `docs/ui-ux-spec.md` (파일명 고정)  
@@ -70,7 +70,7 @@
 | UI-AUTH-005 | `/signup/check-email` | 이메일 인증 안내 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | 가입 후 안내 |
 | UI-AUTH-006 | `/verify-email` | 이메일 인증 결과 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | Auth BFF 연동 |
 | UI-AUTH-007 | `/auth/oauth/callback` | OAuth 완료·오류 | Provider 복귀 | Studio v2.1 UI 코드 구현, 실제 Provider E2E 대기 | 일회용 handoff BFF |
-| UI-COM-003 | `/app` | 로그인 후 최소 홈 | 로그인 필요 | 설계 제안 | 세션 조회·로그아웃 연동 필요 |
+| UI-COM-003 | `/app` | 공통 Workspace 홈 | 로그인 필요 | 코드 구현 | 서버 세션 확인·로그아웃 유지, 브라우저 E2E 대기 |
 
 **이후 추가될 영역:** `RepoQ`(프로젝트 등록/분석, 자유연습, 모의면접, 평가/이력), `계정 설정`(소셜 연결, 비밀번호, 탈퇴), `AlgoField`, `InfraField`. 해당 화면의 **정확한 라우트와 구성은 각 기능을 설계할 때 이 표와 본문에 추가**한다. 아직 승인하지 않은 상세 페이지/경로를 미리 확정하지 않는다.
 
@@ -150,7 +150,7 @@
 
 ### 3.4 Studio Editorial Tech 인증 화면 구현 기준 (v0.8)
 
-`design-preview/DevField-Studio-Editorial-Tech-v2.1.html`의 인증 영역을 구현했다. 이 절은 3.1~3.2의 초기 Dark Glass 제안보다 **인증 화면에 우선**한다. Splash·Welcome 및 `/app`의 디자인 토큰은 변경하지 않는다.
+`design-preview/DevField-Studio-Editorial-Tech-v2.1.html`의 인증 영역을 구현했다. 이 절은 3.1~3.2의 초기 Dark Glass 제안보다 **인증 화면에 우선**한다. Splash·Welcome의 디자인 토큰은 변경하지 않는다. `/app`은 v0.9의 UI-COM-003을 따른다.
 
 | 의미 토큰 | 값 | 인증 화면 사용처 |
 | --- | --- | --- |
@@ -236,15 +236,16 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
                [ 회원가입 ]
 ```
 
-### UI-COM-003 — 로그인 후 최소 홈
+### UI-COM-003 — 공통 Workspace 홈
 
 - **경로:** `/app`.
-- **목적:** 공통 인증이 실제로 동작함을 확인하고 후속 제품 경험의 진입점 제공.
-- **구성:** 공통 헤더(DF/DevField), 간단한 환영 메시지, 향후 RepoQ 영역 진입 자리, 로그아웃 액션.
-- **주의:** 프로젝트 목록·면접 결과·사용자 표시 이름 등 아직 제공되지 않는 데이터는 꾸며서 노출하지 않는다.
-- **접근 제어:** 서버 측에서 세션 유효성을 확인한 뒤 렌더링. 만료/폐기 세션은 로그인으로, Auth 장애는 재시도 가능한 오류 상태로 분기.
+- **목적:** DevField 플랫폼의 로그인 후 공통 진입 화면에서 훈련 서비스를 소개한다.
+- **구성:** DF SVG·DevField·슬로건과 로그아웃을 담은 밝은 헤더, `오늘은 어떤 역량을 키워볼까요?` 제목과 성장 안내, RepoQ·AlgoField·InfraField 서비스 카드. 카드의 이름·설명·아이콘·상태는 공통 데이터 구조를 사용한다.
+- **서비스 상태:** RepoQ는 `개발 중`, AlgoField·InfraField는 `준비 중`으로 표시한다. 실제 서비스 진입 라우트가 연결되기 전에는 카드를 링크나 활성 버튼으로 제공하지 않는다. 프로젝트 목록·진행률·면접 결과·사용자 표시 이름 등 제공되지 않는 데이터는 만들지 않는다.
+- **반응형·접근성:** 3열 데스크톱, 2열 태블릿, 1열 모바일. 헤더의 브랜드와 로그아웃은 모바일에서도 유지한다. 키보드 Focus를 표시하고 Reduced Motion에서는 진입·Hover 모션을 제거한다.
+- **접근 제어:** 서버 측 `requireSession()` 확인 후 Workspace를 렌더링한다. 401은 `/login`으로 이동하고 403은 계정 접근 불가 안내, Auth 장애는 재시도 가능한 별도 안내로 분기한다. 오류 상태에는 보호된 서비스 카드를 렌더링하지 않는다.
 - **로그아웃:** BFF를 통해 Auth 세션을 폐기한 뒤 Web Cookie 정리. 서버 폐기 실패 시 성공으로 표기하지 않는다.
-- **범위:** 현 단계는 최소 앱 홈만 구현. 제품 Dashboard와 실제 메뉴는 해당 서비스 Slice 설계 시 이 파일에 추가.
+- **검증 기준:** 320·390·768·1440px에서 카드·텍스트·Focus·Reduced Motion, 새로고침/직접 접근, 401/403/503 상태 및 로그아웃을 확인한다. 실제 브라우저 E2E와 Auth 연동 검증 여부는 코드 구현 상태와 구분해 기록한다.
 
 ## 6. 인증 화면 상세 명세
 
@@ -467,6 +468,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | v0.6.1 | 2026-10-28 | 활성 세션의 `/`, `/login`, `/signup`, 이메일 폼 접근을 `/app`으로 이동; Auth 장애 시 세션 유지 안내 | 로컬 HTTP 연동 검증, 브라우저 E2E 미검증 |
 | v0.7 | 2026-10-28 | Signature Draw Splash: 6구간 타이밍 단축, 전용 팔레트, DevField 워드마크, 1850ms Welcome Crossfade | 코드 반영, 브라우저 시각 검증 대기 |
 | v0.8 | 2026-10-28 | Issue #2: Studio Editorial Tech 공통 Auth Split Layout, 의미 토큰, 공통 브랜드 문구, 폼·상태 UI 및 Tailwind v4·shadcn/ui·GSAP 도입 | 코드 반영, 실제 Auth 브라우저 E2E 대기 |
+| v0.9 | 2026-10-28 | Issue #5: Studio Editorial Tech 공통 Workspace 홈, 서비스 상태 카드, 반응형·오류 화면 반영 | 코드 반영, 브라우저 E2E 대기 |
 
 ---
 
@@ -478,7 +480,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | 이메일 확인 안내 | `/signup/check-email` | 메일함·스팸함 확인, 직접 접근 가능, 재발송 버튼 없음 | 코드 구현 |
 | 이메일 인증 결과 | `/verify-email#token=…` | Fragment 즉시 제거, 진행·성공·무효·만료·장애, 성공 후 이메일 로그인 | HTTP 연동 확인, 브라우저 E2E 대기 |
 | 이메일 로그인 | `/login/email` | 필드 오류·로딩, 성공 시 서버가 HttpOnly 세션 Cookie 설정 | HTTP 연동 확인, 브라우저 E2E 대기 |
-| 최소 앱 홈 | `/app` | 서버 측 세션 확인, 로그아웃, 장애와 미인증 상태 구분 | HTTP 연동 확인, 브라우저 E2E 대기 |
+| 공통 Workspace 홈 | `/app` | 서버 측 세션 확인, 로그아웃, 장애와 미인증 상태 구분; 세 서비스 준비 상태 표시 | 코드 반영, 브라우저 E2E 대기 |
 | OAuth 완료 | `/auth/oauth/callback` | Fragment에서 flowId·handoff 읽고 즉시 제거, 일회용 교환, 취소·실패 표시 | 코드 구현, 실제 Provider E2E 차단 |
 
 `/login`과 `/signup`의 이메일 버튼은 실제 흐름으로 이동한다. Google·Kakao·GitHub 버튼은 해당 Provider 설정과 검증이 완료되기 전까지 준비 중 상태를 유지한다. 설정된 Provider에 한하여 OAuth 시작은 최상위 브라우저 탐색으로 이어진다. 기존 Splash·Welcome·DF 로고와 공식 소셜 아이콘은 유지한다. 인증 화면은 v0.8에서 Dark Brand + Light Auth로 변경했다.
