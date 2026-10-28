@@ -161,11 +161,12 @@
 | Surface | `#FFFFFF` | 입력·상태 카드 |
 | Text / Muted / Line / Danger | `#172230` / `#667382` / `#DCE4E1` / `#B94048` | 본문·보조 문구·경계·오류 |
 
-- 모든 인증 화면은 `AuthSplitShell`과 `BrandPanel`을 공유한다. 데스크톱은 Dark Brand 44%와 Light Auth 56%의 2열 구성, 820px 이하에서는 브랜드를 상단에 유지한 단일 열이다. 320px에서도 폼과 버튼이 가로로 넘치지 않아야 한다.
+- 모든 인증 화면은 `AuthSplitShell`과 `BrandPanel`을 공유한다. 960px 초과에서는 Dark Brand와 Light Auth를 50:50의 2열로 배치하고, 960px 이하에서는 브랜드를 상단에 유지한 단일 열로 전환한다. 320px에서도 브랜드 문구·폼·버튼이 잘리거나 가로로 넘치지 않아야 하며, 긴 가입 폼은 페이지 전체가 세로로 스크롤된다.
 - 공통 브랜드 문구는 `DEVELOPER GROWTH PLATFORM` / `연습하고, 도전하고, 성장하는 공간.` / `기술면접부터 코딩 테스트, 인프라 문제 해결까지. DevField에서 나만의 속도로 실력을 쌓아가세요.` / `Practice. Solve. Grow.`로 고정한다. 오른쪽 제목·설명·상태만 화면 목적에 따라 다르다.
-- `BrandLogo`의 기존 SVG를 재사용한다. 인증 데스크톱 브랜드 크기는 심볼 62px·워드마크 34px, 모바일은 48px·26px이다. 공식 Google·Kakao·GitHub 자산을 재사용하고, 설정·검증 전 제공자는 `준비 중`으로 비활성화한다.
+- `BrandLogo`의 기존 SVG를 재사용한다. 인증 브랜드의 심볼·워드마크는 960px 초과에서 96px·60px, 561~960px에서 54px·29px, 560px 이하에서 48px·26px이며 항상 가로 정렬한다. 기존 소개 문구의 내용·크기·색상과 Dark Navy 배경, 패널 장식은 유지한다. 공식 Google·Kakao·GitHub 자산을 재사용하고, 설정·검증 전 제공자는 `준비 중`으로 비활성화한다.
 - Tailwind CSS v4는 `@theme inline`에서 DevField 색상과 shadcn 의미 토큰(`background`·`foreground`·`primary`·`secondary`·`muted`·`accent`·`destructive`·`border`·`input`·`ring`·`radius`)을 연결한다. Preflight는 불러오지 않아 기존 CSS Modules 및 전역 스타일을 보존한다. shadcn/ui Button·Input은 이메일 폼에 사용한다. GSAP은 인증 콘텐츠의 단발 진입에만 사용하고 Reduced Motion에서는 생략한다. Hover·Focus는 CSS로 처리한다.
 - `FormField`는 label·오류 연결을, `StatusView`는 메일 안내·인증 결과·OAuth 상태를 공통 처리한다. 이 UI 변경은 이메일/OAuth BFF 호출, Fragment 즉시 제거, CSRF, HttpOnly Cookie 및 서버 세션 판정을 바꾸지 않는다.
+- 인증 브랜드 크기와 분할 비율 변경은 공통 CSS에만 적용한다. 로그인·가입 방법 선택, 이메일 폼, 확인·OAuth 상태 및 `AuthEntryStatus`에 함께 반영하며 Splash·Welcome·Workspace의 로고 스타일은 변경하지 않는다.
 - 코드 구현과 정적 검증은 브라우저 E2E 완료와 다르다. 실제 Provider 동작·메일 링크·세션 유지·로그아웃은 연동 가능한 환경에서 별도 검증한다.
 
 ## 4. 애니메이션 및 화면 전환
@@ -469,6 +470,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | v0.7 | 2026-10-28 | Signature Draw Splash: 6구간 타이밍 단축, 전용 팔레트, DevField 워드마크, 1850ms Welcome Crossfade | 코드 반영, 브라우저 시각 검증 대기 |
 | v0.8 | 2026-10-28 | Issue #2: Studio Editorial Tech 공통 Auth Split Layout, 의미 토큰, 공통 브랜드 문구, 폼·상태 UI 및 Tailwind v4·shadcn/ui·GSAP 도입 | 코드 반영, 실제 Auth 브라우저 E2E 대기 |
 | v0.9 | 2026-10-28 | Issue #5: Studio Editorial Tech 공통 Workspace 홈, 서비스 상태 카드, 반응형·오류 화면 반영 | 코드 반영, 브라우저 E2E 대기 |
+| v0.10 | 2026-10-28 | 공통 Auth 브랜드 강조: 960px 초과 50:50 Split, DF 96px·워드마크 60px, 960px 이하 단일 열 및 모바일 최소 크기 유지 | CSS·명세 반영, 검증 결과는 작업 보고 참조 |
 
 ---
 
