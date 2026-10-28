@@ -1,7 +1,7 @@
 # DevField-Web — 통합 IA 및 UI/UX 명세서
 
 > **브랜드:** DevField — `Practice. Solve. Grow.`  
-> **문서 버전:** v0.9 (Studio Editorial Tech 공통 Workspace 구현)
+> **문서 버전:** v0.12 (Studio Editorial Tech 계정 상태 표현 보완)
 > **기준일:** 2026-10-28  
 > **대상 저장소:** `thedevfield/DevField-Web`  
 > **권장 저장 위치:** `docs/ui-ux-spec.md` (파일명 고정)  
@@ -71,6 +71,7 @@
 | UI-AUTH-006 | `/verify-email` | 이메일 인증 결과 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | Auth BFF 연동 |
 | UI-AUTH-007 | `/auth/oauth/callback` | OAuth 완료·오류 | Provider 복귀 | Studio v2.1 UI 코드 구현, 실제 Provider E2E 대기 | 일회용 handoff BFF |
 | UI-COM-003 | `/app` | 공통 Workspace 홈 | 로그인 필요 | 코드 구현 | 서버 세션 확인·로그아웃 유지, 브라우저 E2E 대기 |
+| UI-COM-004 | `/account` | 내 계정 | 유효한 AuthSession 필요 | 코드 구현 | ACTIVE·DELETING 조회, 브라우저 E2E 대기 |
 
 **이후 추가될 영역:** `RepoQ`(프로젝트 등록/분석, 자유연습, 모의면접, 평가/이력), `계정 설정`(소셜 연결, 비밀번호, 탈퇴), `AlgoField`, `InfraField`. 해당 화면의 **정확한 라우트와 구성은 각 기능을 설계할 때 이 표와 본문에 추가**한다. 아직 승인하지 않은 상세 페이지/경로를 미리 확정하지 않는다.
 
@@ -248,6 +249,17 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 - **로그아웃:** BFF를 통해 Auth 세션을 폐기한 뒤 Web Cookie 정리. 서버 폐기 실패 시 성공으로 표기하지 않는다.
 - **검증 기준:** 320·390·768·1440px에서 카드·텍스트·Focus·Reduced Motion, 새로고침/직접 접근, 401/403/503 상태 및 로그아웃을 확인한다. 실제 브라우저 E2E와 Auth 연동 검증 여부는 코드 구현 상태와 구분해 기록한다.
 
+### UI-COM-004 — 내 계정
+
+- **경로·목적:** `/account`에서 현재 AuthSession에 연결된 DevField 계정 정보를 읽기 전용으로 보여준다. `/app`의 공통 Workspace 헤더에 내 계정 링크를 제공하며 로고·로그아웃을 유지한다. Workspace 복귀 링크도 제공한다.
+- **접근 정책:** Web 서버가 HttpOnly Session Handle을 읽어 Auth A-01 `GET /api/account/me`로 전달한다. `requireSession()`의 JWT 발급을 선행하지 않는다. ACTIVE와 DELETING 계정을 조회하며, DELETING의 `/app` 접근 정책은 기존대로 유지한다.
+- **표시 항목:** DevField User ID, 표시 이름, 확인된 이메일, 이메일 로그인 사용 가능 여부, 연결된 소셜 Provider 목록, 실제 `createdAt`을 한국어 날짜로 표시한 가입일, 계정 삭제 진행 여부. `displayName`이 null이면 “등록된 표시 이름이 없습니다”, `email`이 null이면 “등록된 이메일 로그인 정보가 없습니다”를 표시한다. Provider 목록은 연결 상태이며 현재 로그인 수단으로 설명하지 않는다.
+- **상태:** ACTIVE는 정상 계정 화면, DELETING은 삭제 진행 및 Workspace 이용 제한 안내를 함께 보여준다. 401은 `/login`으로 이동한다. 403은 계정 이용 불가 안내, 503은 개인정보 없이 재시도 안내를 표시한다. Auth 장애만으로 Cookie를 삭제하지 않는다.
+- **API/BFF:** Web `GET /api/account/me`는 고정된 Auth 내부 Origin과 동일 경로만 호출한다. BFF 전용 ServiceCredential과 Session Handle은 서버 측에서만 전송한다. 요청의 사용자 ID는 받지 않는다. Timeout, 응답 크기 제한, Redirect 금지, `Cache-Control: no-store`를 적용하고 허용된 응답 필드만 브라우저에 전달한다. 기존 `GET /api/auth/session` 의미는 유지한다.
+- **반응형·접근성:** Studio Editorial Tech 토큰 Ink Navy `#0B1220`, Soft Canvas `#F6F8F7`, Emerald `#21C7A8`, Deep Emerald `#087F6D`, White Surface `#FFFFFF`를 사용한다. 320·390·768·1440px에서 헤더와 카드가 넘치지 않아야 한다. 긴 ID는 줄바꿈하고, Tab·Focus Visible, 오류 안내의 접근성 및 자연스러운 모바일 스크롤을 지원한다.
+- **화면 표현:** `ACCOUNT / OVERVIEW`와 내 계정 제목 옆에 Workspace 복귀 링크를 둔다. 공통 헤더는 Workspace·내 계정 링크의 현재 경로를 `aria-current`와 시각 상태로 구분한다. 비어 있는 표시 이름·이메일·Provider는 로딩과 다른 명시적 안내로 표시한다. User ID 복사는 버튼으로 제공하고 성공·실패를 `aria-live`로 알린다.
+- **로딩·피드백:** `/account/loading.tsx`는 App Router의 계정 페이지 비동기 렌더링에 연결되며 카드 구조를 닮은 정적 Skeleton을 보여준다. 가짜 지연이나 개인정보는 없다. 링크와 버튼에 180ms 안팎의 피드백을 적용하고 Reduced Motion에서는 전환을 제거한다.
+
 ## 6. 인증 화면 상세 명세
 
 ### UI-AUTH-001 — 로그인 방법 선택
@@ -319,6 +331,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | `POST /api/auth/verify-email` | `POST /api/auth/verify-email` | UI-AUTH-006 |
 | `POST /api/auth/login` | `POST /api/auth/login` | UI-AUTH-002 |
 | `POST /api/auth/logout` | `POST /api/auth/logout` | UI-COM-003 |
+| `GET /api/account/me` | `GET /api/account/me` (Auth A-01) | UI-COM-004 |
 | `GET /api/auth/session` (신규 Web 제안) | `POST /internal/auth/session-token` 등 BFF 허용 세션 경로 사용 검토 | UI-COM-002·003 및 보호 라우트 |
 
 - Auth의 `GET /api/auth/jwks`는 Project/Interview JWT 검증용 공개 API다. 일반 로그인 화면에서 호출하지 않는다.
@@ -471,6 +484,8 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | v0.8 | 2026-10-28 | Issue #2: Studio Editorial Tech 공통 Auth Split Layout, 의미 토큰, 공통 브랜드 문구, 폼·상태 UI 및 Tailwind v4·shadcn/ui·GSAP 도입 | 코드 반영, 실제 Auth 브라우저 E2E 대기 |
 | v0.9 | 2026-10-28 | Issue #5: Studio Editorial Tech 공통 Workspace 홈, 서비스 상태 카드, 반응형·오류 화면 반영 | 코드 반영, 브라우저 E2E 대기 |
 | v0.10 | 2026-10-28 | 공통 Auth 브랜드 강조: 960px 초과 50:50 Split, DF 96px·워드마크 60px, 960px 이하 단일 열 및 모바일 최소 크기 유지 | CSS·명세 반영, 검증 결과는 작업 보고 참조 |
+| v0.11 | 2026-10-28 | UI-COM-004 내 계정, Auth A-01 BFF 연동, Workspace 사용자 메뉴, ACTIVE·DELETING·오류 상태 추가 | 코드 및 HTTP 테스트 반영, 실제 계정 브라우저 E2E 대기 |
+| v0.12 | 2026-10-28 | Issue #9 보완: 현재 경로 메뉴, Account Overview 정보 위계, 실제 로딩 Skeleton, Empty State, User ID 복사 피드백 | 코드·Mock HTTP 검증, 실제 계정 브라우저 E2E 대기 |
 
 ---
 

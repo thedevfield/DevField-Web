@@ -20,13 +20,17 @@ const services: Service[] = [
   { name: "InfraField", description: "장애 상황에서 실무 대응 능력을 훈련하세요.", detail: "인프라 장애 대응과 문제 해결을 연습하는 공간을 준비하고 있습니다.", status: "준비 중", icon: ServerCog, number: "03" },
 ];
 
-function WorkspaceHeader({ withLogout = true }: { withLogout?: boolean }) {
+export function WorkspaceHeader({ withLogout = true, current = "workspace" }: { withLogout?: boolean; current?: "workspace" | "account" }) {
   return <header className={styles.header}><div className={styles.headerInner}>
     <Link className={styles.brand} href="/app" aria-label="DevField Workspace 홈">
       <BrandLogo className={styles.brandLogo} />
       <span className={styles.brandText}><strong>DevField</strong><small>Practice. Solve. Grow.</small></span>
     </Link>
-    {withLogout && <div className={styles.logout}><LogoutButton /></div>}
+    <nav className={styles.headerActions} aria-label="사용자 메뉴">
+      <Link className={styles.headerLink} href="/app" aria-current={current === "workspace" ? "page" : undefined}>Workspace</Link>
+      <Link className={styles.headerLink} href="/account" aria-current={current === "account" ? "page" : undefined}>내 계정</Link>
+      {withLogout && <div className={styles.logout}><LogoutButton /></div>}
+    </nav>
   </div></header>;
 }
 

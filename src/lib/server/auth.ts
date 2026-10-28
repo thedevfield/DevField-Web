@@ -156,6 +156,72 @@ export async function authPost(path: string, body?: object, handle?: string): Pr
   throw new BffError(503, "auth_unavailable");
 }
 
+export type AccountProfile = {
+  userId: string;
+  displayName: string | null;
+  email: string | null;
+  emailLoginEnabled: boolean;
+  socialProviders: ("GOOGLE" | "GITHUB" | "KAKAO")[];
+  createdAt: string;
+  deletionStatus: "NONE" | "DELETING";
+};
+
+/** A-01 only: the target and credential are never supplied by a browser request. */
+export async function accountMe(): Promise<AccountProfile> {
+  const handle = await sessionHandle();
+  if (!handle) throw new BffError(401, "invalid_session");
+  const key = process.env.DEVFIELD_BFF_SERVICE_KEY;
+  if (!key || !origin()) throw new BffError(503, "web_configuration_error");
+  let target: URL;
+  try {
+    const base = new URL(authOrigin);
+    if (!/^https?:$/.test(base.protocol) || base.username || base.password || base.search || base.hash || base.pathname !== "/") throw new Error();
+    target = new URL("/api/account/me", base);
+  } catch { throw new BffError(503, "web_configuration_error"); }
+  let response: Response;
+  try {
+    response = await fetch(target, {
+      method: "GET", cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(5000),
+      headers: { "X-DevField-Service": "bff", "X-DevField-Service-Key": key, "X-DevField-Session-Handle": handle },
+    });
+  } catch { throw new BffError(503, "auth_unavailable"); }
+  if (response.status === 401) throw new BffError(401, "invalid_session");
+  if (response.status === 403) throw new BffError(403, "account_unavailable");
+  if (response.status !== 200) throw new BffError(503, "auth_unavailable");
+  const length = Number(response.headers.get("content-length") ?? 0);
+  if (!Number.isFinite(length) || length > 16_384) throw new BffError(503, "auth_unavailable");
+  let data: unknown;
+  try {
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 16_384) { await reader.cancel(); throw new Error(); }
+      chunks.push(value);
+    }
+    data = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch { throw new BffError(503, "auth_unavailable"); }
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new BffError(503, "auth_unavailable");
+  const profile = data as Record<string, unknown>;
+  if (typeof profile.userId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.userId) ||
+    !(profile.displayName === null || typeof profile.displayName === "string") ||
+    !(profile.email === null || typeof profile.email === "string") ||
+    typeof profile.emailLoginEnabled !== "boolean" ||
+    !Array.isArray(profile.socialProviders) || !profile.socialProviders.every(p => ["GOOGLE", "GITHUB", "KAKAO"].includes(p)) ||
+    typeof profile.createdAt !== "string" || !Number.isFinite(Date.parse(profile.createdAt)) ||
+    !["NONE", "DELETING"].includes(String(profile.deletionStatus))) throw new BffError(503, "auth_unavailable");
+  return {
+    userId: profile.userId, displayName: profile.displayName, email: profile.email,
+    emailLoginEnabled: profile.emailLoginEnabled,
+    socialProviders: profile.socialProviders, createdAt: profile.createdAt,
+    deletionStatus: profile.deletionStatus,
+  } as AccountProfile;
+}
+
 export async function requireSession() {
   const handle = await sessionHandle();
   if (!handle) throw new BffError(401, "invalid_session");

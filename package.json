@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 13000 -H 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test:bff": "node --test tests/auth-bff-http.test.mjs"
+    "test:bff": "node --test tests/account-bff-http.test.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
