@@ -69,6 +69,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       <Button className={styles.submit} disabled={pending} type="submit" aria-busy={pending}>{pending ? "처리 중…" : signup ? "회원가입" : "로그인"}</Button>
       <p className={styles.status} role="status" aria-live="polite">{status}</p>
     </form>
+    {!signup && <p className={styles.bottomLink}><Link href="/reset-password">비밀번호를 잊으셨나요?</Link></p>}
     <nav className={styles.bottomLink} aria-label={signup ? "로그인 안내" : "회원가입 안내"}>{signup ? "이미 계정이 있나요?" : "계정이 없나요?"} <Link href={signup ? "/login" : "/signup"}>{signup ? "로그인" : "회원가입"}</Link></nav>
   </AuthSplitShell>;
 }

@@ -72,8 +72,11 @@
 | UI-AUTH-007 | `/auth/oauth/callback` | OAuth 완료·오류 | Provider 복귀 | Studio v2.1 UI 코드 구현, 실제 Provider E2E 대기 | 일회용 handoff BFF |
 | UI-COM-003 | `/app` | 공통 Workspace 홈 | 로그인 필요 | 코드 구현 | 서버 세션 확인·로그아웃 유지, 브라우저 E2E 대기 |
 | UI-COM-004 | `/account` | 내 계정 | 유효한 AuthSession 필요 | 코드 구현 | ACTIVE·DELETING 조회, 브라우저 E2E 대기 |
+| UI-ACC-EMAIL-01 | `/account/email/verify` | 이메일 추가 소유권 확인·비밀번호 최초 설정 | 요청 당시 AuthSession 필요 | 코드 구현, Auth 통합 테스트 | Fragment 즉시 제거 |
+| UI-ACC-EMAIL-02 | `/reset-password` | 비밀번호 재설정 요청 | 비로그인 가능 | 코드 구현, BFF 테스트 | 계정 존재 무관 동일 안내 |
+| UI-ACC-EMAIL-03 | `/reset-password/complete` | 일회용 링크로 재설정 | 비로그인 가능 | 코드 구현, BFF 테스트 | Fragment 즉시 제거·전체 세션 폐기 |
 
-**이후 추가될 영역:** `RepoQ`(프로젝트 등록/분석, 자유연습, 모의면접, 평가/이력), `계정 설정`(소셜 연결, 비밀번호, 탈퇴), `AlgoField`, `InfraField`. 해당 화면의 **정확한 라우트와 구성은 각 기능을 설계할 때 이 표와 본문에 추가**한다. 아직 승인하지 않은 상세 페이지/경로를 미리 확정하지 않는다.
+**이후 추가될 영역:** `RepoQ`(프로젝트 등록/분석, 자유연습, 모의면접, 평가/이력), 계정 탈퇴, `AlgoField`, `InfraField`. 이메일·소셜 로그인 수단 관리의 승인된 경로는 아래 계정 섹션에 기록한다.
 
 ### 2.2 진입/인증 사용자 여정
 
@@ -251,7 +254,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 
 ### UI-COM-004 — 내 계정
 
-- **경로·목적:** `/account`에서 현재 AuthSession에 연결된 DevField 계정 정보를 읽기 전용으로 보여준다. `/app`의 공통 Workspace 헤더에 내 계정 링크를 제공하며 로고·로그아웃을 유지한다. Workspace 복귀 링크도 제공한다.
+- **경로·목적:** `/account`에서 현재 AuthSession에 연결된 DevField 계정 정보를 보여주고 로그인 수단을 관리한다. `/app`의 공통 Workspace 헤더에 내 계정 링크를 제공하며 로고·로그아웃을 유지한다. Workspace 복귀 링크도 제공한다.
 - **접근 정책:** Web 서버가 HttpOnly Session Handle을 읽어 Auth A-01 `GET /api/account/me`로 전달한다. `requireSession()`의 JWT 발급을 선행하지 않는다. ACTIVE와 DELETING 계정을 조회하며, DELETING의 `/app` 접근 정책은 기존대로 유지한다.
 - **표시 항목:** DevField User ID, 표시 이름, 확인된 이메일, 이메일 로그인 사용 가능 여부, 연결된 소셜 Provider 목록, 실제 `createdAt`을 한국어 날짜로 표시한 가입일, 계정 삭제 진행 여부. `displayName`이 null이면 “등록된 표시 이름이 없습니다”, `email`이 null이면 “등록된 이메일 로그인 정보가 없습니다”를 표시한다. Provider 목록은 연결 상태이며 현재 로그인 수단으로 설명하지 않는다.
 - **상태:** ACTIVE는 정상 계정 화면, DELETING은 삭제 진행 및 Workspace 이용 제한 안내를 함께 보여준다. 401은 `/login`으로 이동한다. 403은 계정 이용 불가 안내, 503은 개인정보 없이 재시도 안내를 표시한다. Auth 장애만으로 Cookie를 삭제하지 않는다.
@@ -279,7 +282,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 - **Primary:** `로그인`; 제출 중 비활성/진행 표시.
 - **동작:** 브라우저 → Web BFF → 기존 Auth `POST /api/auth/login`; BFF는 반환받은 `sessionHandle`을 서버 측에서만 이용해 HttpOnly Cookie를 설정 → `/app`.
 - **오류:** 유효하지 않은 입력, `401` 자격 불일치, `403` 계정 이용 불가, `429` 제한, `503` 장애. 개인정보/계정 존재 여부를 필요 이상 노출하지 않는다.
-- **보조 탐색:** `/login`으로 뒤로가기, 회원가입 이동. 비밀번호 재설정 링크는 해당 Backend가 구현된 뒤 활성화.
+- **보조 탐색:** `/login`으로 뒤로가기, 회원가입 이동, `/reset-password` 비밀번호 재설정 링크.
 - **완료 기준:** 로그인 성공, 오입력, 이메일 미인증, 새로고침/세션 유지, 중복 제출 방지가 브라우저에서 검증됨.
 
 ### UI-AUTH-003 — 회원가입 방법 선택
@@ -524,3 +527,12 @@ OAuth Callback은 LOGIN·SIGNUP·LINK·REAUTH를 구분한다. LOGIN에서 미�
 사용자 실브라우저 E2E에서 기존 회원 소셜 가입 안내, 마이페이지, 반응형·접근성은 통과했고 Google 재확인은 실패했다. 실제 연결·해제 성공은 미검증이다. 이번 버튼 보정은 모의 Auth를 연결한 Chrome 렌더링에서 320·390·768·1440px 가로 넘침 없음과 재확인 전후 두 버튼의 동일 너비·46px 높이를 확인했다. 이는 실제 Provider 재확인 또는 연결 완료 E2E를 대체하지 않는다.
 
 2026-10-29 로컬 MVP 정책: Auth 서버에서 `AUTH_GOOGLE_REAUTH_IDENTITY_ONLY_ENABLED=true`를 명시적으로 켠 경우 Google 소셜 재확인은 새 OAuth 결과의 검증된 동일 Google 계정 `sub`를 확인한다. 화면은 “Google 계정 확인”과 해당 계정 연결 여부 확인을 안내하며 비밀번호 재입력·MFA·최근 강한 재인증을 보장한다고 표현하지 않는다. 설정 기본값은 `false`이고 Web에는 설정 스위치가 없다. 실제 Google Provider E2E는 사용자 후속 검증 대상이다.
+
+
+### 이메일 계정 관리 확장 (2026-10-29)
+
+/account의 기존 로그인 수단 카드에서 이메일 상태를 사용 가능·소유권 확인 대기·비밀번호 설정 필요로 구분한다. 소셜 전용 회원은 이미 연결된 Provider의 OAuth 재확인을 마친 뒤 이메일 인증 메일을 요청한다. 인증 링크는 /account/email/verify#token=…으로 열며 화면이 Fragment를 즉시 제거하고 세션에 묶인 증명을 BFF로 전송한다. 확인 후 비밀번호를 최초 설정해야 이메일 로그인 수단이 활성화된다. 현재 비밀번호 변경은 /account에서 처리하고 성공 시 다른 세션을 종료한다.
+
+/login/email에는 /reset-password 링크를 제공한다. 재설정 요청은 계정 존재와 무관한 동일한 성공 안내를 표시한다. /reset-password/complete#token=…은 Fragment를 즉시 제거하고 새 비밀번호를 설정한다. 완료 시 전체 세션이 종료되므로 다시 로그인한다. 모든 변경 POST는 기존 Origin·CSRF·HttpOnly Session Cookie BFF 경계를 따른다. 로딩·성공·만료·충돌·서비스 장애를 상태 문구로 알리고 폼 label, focus 표시, 44px 이상 입력·버튼 높이를 유지한다. 실제 모바일·키보드 Chrome E2E는 미실행이다.
+
+OAuth LOGIN·SIGNUP·LINK·REAUTH에서 Auth는 Google·GitHub의 공식 계정 선택 요청과 Kakao 로그인 화면 재진입 요청을 사용한다. Provider의 실제 화면 결과와 강한 본인 재인증은 구별한다.

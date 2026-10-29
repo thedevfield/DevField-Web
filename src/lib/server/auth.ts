@@ -162,6 +162,8 @@ export type AccountProfile = {
   displayName: string | null;
   email: string | null;
   emailLoginEnabled: boolean;
+  emailLoginPending: boolean;
+  emailOwnershipVerified: boolean;
   socialProviders: ("GOOGLE" | "GITHUB" | "KAKAO")[];
   createdAt: string;
   deletionStatus: "NONE" | "DELETING";
@@ -212,12 +214,14 @@ export async function accountMe(): Promise<AccountProfile> {
     !(profile.displayName === null || typeof profile.displayName === "string") ||
     !(profile.email === null || typeof profile.email === "string") ||
     typeof profile.emailLoginEnabled !== "boolean" ||
+    typeof profile.emailLoginPending !== "boolean" ||
+    typeof profile.emailOwnershipVerified !== "boolean" ||
     !Array.isArray(profile.socialProviders) || !profile.socialProviders.every(p => ["GOOGLE", "GITHUB", "KAKAO"].includes(p)) ||
     typeof profile.createdAt !== "string" || !Number.isFinite(Date.parse(profile.createdAt)) ||
     !["NONE", "DELETING"].includes(String(profile.deletionStatus))) throw new BffError(503, "auth_unavailable");
   return {
     userId: profile.userId, displayName: profile.displayName, email: profile.email,
-    emailLoginEnabled: profile.emailLoginEnabled,
+    emailLoginEnabled: profile.emailLoginEnabled, emailLoginPending: profile.emailLoginPending, emailOwnershipVerified: profile.emailOwnershipVerified,
     socialProviders: profile.socialProviders, createdAt: profile.createdAt,
     deletionStatus: profile.deletionStatus,
   } as AccountProfile;

@@ -5,6 +5,7 @@ import { WorkspaceHeader } from "@/components/workspace/WorkspaceHome";
 import { CopyUserId } from "./CopyUserId";
 import styles from "./page.module.css";
 import { AccountMethods } from "./AccountMethods";
+import { EmailMethods } from "./EmailMethods";
 import { providerEnabled } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ function AccountDetails({ profile }: { profile: AccountProfile }) {
         <p className={styles.cardEyebrow}>01 / PROFILE</p><h2 id="account-info-title">계정 정보</h2>
         <dl>
           <Field label="표시 이름">{profile.displayName ?? <span className={styles.emptyValue}>등록된 표시 이름이 없습니다</span>}</Field>
-          <Field label="확인된 이메일">{profile.email ?? <span className={styles.emptyValue}>등록된 이메일 로그인 정보가 없습니다</span>}</Field>
+          <Field label="이메일">{profile.email ? <>{profile.email}{!profile.emailOwnershipVerified && " (인증 대기)"}</> : <span className={styles.emptyValue}>등록된 이메일 로그인 정보가 없습니다</span>}</Field>
           <Field label="DevField User ID"><div className={styles.idRow}><span className={styles.identifier}>{profile.userId}</span><CopyUserId userId={profile.userId} /></div></Field>
           <Field label="가입일">{new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Seoul" }).format(new Date(profile.createdAt))}</Field>
           <Field label="계정 상태"><span className={deleting ? styles.deletingState : styles.activeState}>{deleting ? "삭제 진행 중" : "정상"}</span></Field>
@@ -40,7 +41,8 @@ function AccountDetails({ profile }: { profile: AccountProfile }) {
       <section className={styles.card} aria-labelledby="login-methods-title">
         <p className={styles.cardEyebrow}>02 / ACCESS</p><h2 id="login-methods-title">로그인 수단</h2>
         <p className={styles.accessIntro}>DevField에 로그인할 수 있는 수단을 관리합니다.</p>
-        <div className={styles.emailMethod}><strong>이메일 로그인</strong><span>{profile.emailLoginEnabled ? "사용 가능" : "사용 불가"}</span></div>
+        <div className={styles.emailMethod}><strong>이메일 로그인</strong><span>{profile.emailLoginEnabled ? "사용 가능" : profile.emailOwnershipVerified ? "비밀번호 설정 필요" : profile.emailLoginPending ? "인증 대기" : "사용 불가"}</span></div>
+        <EmailMethods profile={profile} />
         <AccountMethods profile={profile} enabled={( ["google", "github", "kakao"] as const).filter(providerEnabled)} />
       </section>
     </div>
