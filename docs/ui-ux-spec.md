@@ -536,3 +536,13 @@ OAuth Callback은 LOGIN·SIGNUP·LINK·REAUTH를 구분한다. LOGIN에서 미�
 /login/email에는 /reset-password 링크를 제공한다. 재설정 요청은 계정 존재와 무관한 동일한 성공 안내를 표시한다. /reset-password/complete#token=…은 Fragment를 즉시 제거하고 새 비밀번호를 설정한다. 완료 시 전체 세션이 종료되므로 다시 로그인한다. 모든 변경 POST는 기존 Origin·CSRF·HttpOnly Session Cookie BFF 경계를 따른다. 로딩·성공·만료·충돌·서비스 장애를 상태 문구로 알리고 폼 label, focus 표시, 44px 이상 입력·버튼 높이를 유지한다. 실제 모바일·키보드 Chrome E2E는 미실행이다.
 
 OAuth LOGIN·SIGNUP·LINK·REAUTH에서 Auth는 Google·GitHub의 공식 계정 선택 요청과 Kakao 로그인 화면 재진입 요청을 사용한다. Provider의 실제 화면 결과와 강한 본인 재인증은 구별한다.
+
+## RepoQ GitHub App 연결 (UI-REP-001, `/app/repoq`)
+
+- 접근: DevField 로그인 세션이 필요하다. Workspace의 RepoQ 카드에서 진입한다.
+- 목적: GitHub 소셜 로그인과 별도로 GitHub App의 사용자 승인, 설치 승인, 접근 가능한 Repository를 확인한다.
+- 상태: 사용자 승인 필요/완료/재승인 필요와 App 설치 필요/관리자 승인 대기/설치 완료를 독립적으로 표시한다.
+- 동작: 연결 버튼은 CSRF 보호된 BFF 시작 API를 호출한 뒤 검증된 GitHub URL로 이동한다. Callback과 Setup 결과는 민감 Query를 제거한 이 화면에서 안내한다.
+- 목록: Project가 확인한 Repository ID, 전체 이름, Public/Private만 표시하고 30개씩 페이지를 이동한다. Private 코드 내용은 표시하지 않는다.
+- 예외: 로딩, Auth/Project 장애, 취소, 만료, 승인 대기, 거부를 구분한다. 모바일 단일 열, 키보드 포커스, reduced motion을 지원한다.
+- 검증 상태: BFF 모의 HTTP 테스트와 빌드 완료 후 실제 GitHub 브라우저 E2E는 별도 확인한다.

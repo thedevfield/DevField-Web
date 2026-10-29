@@ -8,7 +8,7 @@ const listen = server => new Promise(resolve => server.listen(0, "127.0.0.1", ()
 const close = server => new Promise(resolve => server.close(resolve));
 const profile = (providers = [], overrides = {}) => ({
   userId: "00000000-0000-4000-8000-000000000001", displayName: "테스트 사용자", email: "verified@example.test",
-  emailLoginEnabled: true, socialProviders: providers, createdAt: "2026-01-02T03:04:05Z", deletionStatus: "NONE", ...overrides,
+  emailLoginEnabled: true, emailLoginPending: false, emailOwnershipVerified: true, socialProviders: providers, createdAt: "2026-01-02T03:04:05Z", deletionStatus: "NONE", ...overrides,
 });
 
 test("account BFF and existing auth regressions against isolated Auth mock", { timeout: 120000 }, async () => {
@@ -88,7 +88,7 @@ test("account BFF and existing auth regressions against isolated Auth mock", { t
       assert.equal(body.deletionStatus, handle === "deleting" ? "DELETING" : "NONE");
       assert.equal(body.displayName, handle === "github" ? null : "테스트 사용자");
       assert.equal(body.email, handle === "github" || handle === "google-kakao" ? null : "verified@example.test");
-      assert.deepEqual(Object.keys(body).sort(), ["userId", "displayName", "email", "emailLoginEnabled", "socialProviders", "createdAt", "deletionStatus"].sort());
+      assert.deepEqual(Object.keys(body).sort(), ["userId", "displayName", "email", "emailLoginEnabled", "emailLoginPending", "emailOwnershipVerified", "socialProviders", "createdAt", "deletionStatus"].sort());
       assert.doesNotMatch(JSON.stringify(body), /must-not-leak|jwt|sessionHandle|secret/);
     }
     for (const handle of ["expired", "revoked"]) assert.equal((await get("/api/account/me", handle)).status, 401);
