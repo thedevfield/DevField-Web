@@ -36,7 +36,7 @@ export function AuthMethodSelect({ mode, enabledProviders = [] }: { mode: Mode; 
     setPendingProvider(provider);
     try {
       setNotice(`${providerNames[provider]} ${isLogin ? "로그인" : "회원가입"} 시작 중…`);
-      const response = await postAuth("/api/auth/oauth/start", { provider, intent: isLogin ? "LOGIN" : "SIGNUP" });
+      const response = await postAuth("/api/auth/oauth/start", { provider, intent: isLogin ? "LOGIN" : "SIGNUP", selectAccount: true });
       const body = await response.json();
       if (!response.ok || typeof body.authorizationUrl !== "string") throw new Error();
       window.location.assign(body.authorizationUrl);
