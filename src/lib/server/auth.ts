@@ -254,6 +254,7 @@ export async function clearSession() {
   const jar = await cookies();
   jar.delete(sessionName);
   jar.delete(csrfName);
+  jar.delete(process.env.NODE_ENV === "production" ? "__Host-DF_GITHUB_ATTEMPT" : "DF_GITHUB_ATTEMPT_DEV");
   jar.set("DF_ACCOUNT_REAUTH", "", { path: "/api/account", maxAge: 0 });
   for (const cookie of jar.getAll()) {
     if (cookie.name.startsWith("DF_ACCOUNT_OAUTH_")) jar.delete(cookie.name);
