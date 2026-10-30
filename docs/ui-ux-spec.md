@@ -537,12 +537,19 @@ OAuth Callback은 LOGIN·SIGNUP·LINK·REAUTH를 구분한다. LOGIN에서 미�
 
 OAuth LOGIN·SIGNUP·LINK·REAUTH에서 Auth는 Google·GitHub의 공식 계정 선택 요청과 Kakao 로그인 화면 재진입 요청을 사용한다. Provider의 실제 화면 결과와 강한 본인 재인증은 구별한다.
 
-## RepoQ GitHub App 연결 (UI-REP-001, `/app/repoq`)
+## RepoQ 프로젝트 Workspace (UI-REP-001~004)
 
-- 접근: DevField 로그인 세션이 필요하다. Workspace의 RepoQ 카드에서 진입한다.
-- 목적: GitHub 소셜 로그인과 별도로 GitHub App의 사용자 승인, 설치 승인, 접근 가능한 Repository를 확인한다.
-- 상태: 사용자 승인 필요/완료/재승인 필요와 App 설치 필요/관리자 승인 대기/설치 완료를 독립적으로 표시한다.
-- 동작: 연결 버튼은 CSRF 보호된 BFF 시작 API를 호출한 뒤 검증된 GitHub URL로 이동한다. Callback과 Setup 결과는 민감 Query를 제거한 이 화면에서 안내한다.
-- 목록: Project가 확인한 Repository ID, 전체 이름, Public/Private만 표시하고 30개씩 페이지를 이동한다. Private 코드 내용은 표시하지 않는다.
-- 예외: 로딩, Auth/Project 장애, 취소, 만료, 승인 대기, 거부를 구분한다. 모바일 단일 열, 키보드 포커스, reduced motion을 지원한다.
-- 검증 상태: BFF 모의 HTTP 테스트와 빌드 완료 후 실제 GitHub 브라우저 E2E는 별도 확인한다.
+- 책임: 공통 `/app`은 서비스 진입과 서비스별 활동 요약의 자리이며, RepoQ 프로젝트·Repository 관리는 RepoQ 내부에서 수행한다. `/account`는 공통 계정과 로그인 수단을 관리한다. 현재 제공되지 않는 활동 통계는 만들지 않는다.
+- `/app/repoq` (UI-REP-001): 로그인 세션 확인 후 사용자 소유 프로젝트의 이름, Repository 개수, 분석 상태, 상세 링크를 표시한다. 빈 목록, 로딩, Auth/Project 장애와 재시도를 구분한다. 새 프로젝트와 GitHub App 연결 관리로 이동한다.
+- `/app/repoq/projects/new` (UI-REP-002): 이름 trim 후 1~100자, Public GitHub URL 1~20개를 입력한다. 빈 목록·중복 URL·잘못된 주소를 제출 전에 거부하고 서버가 실제 공개 여부와 안정 Repository ID를 다시 검증한다. Public URL 등록은 GitHub App 설치를 요구하지 않는다. 성공 시 상세로 이동한다.
+- `/app/repoq/projects/{id}` (UI-REP-003): 통합 분석 상태와 Repository별 이름·Public/Private·상태를 보여준다. 추가 P-07은 현재 전체 연결 목록을 반환하므로 상세를 재조회한다. 제거 P-08은 Member UUID를 사용하며 대상 이름·GitHub 원본 유지 안내를 포함한 확인 Dialog 후 처리한다. 마지막 1개 제거와 RUNNING Job 중 변경은 409 안내를 표시한다.
+- 분석 Worker·Snapshot·Interview가 아직 없으므로 QUEUED를 READY로 바꾸지 않는다. `canInterview=false` 또는 Snapshot 부재 시 자유연습·모의면접은 준비 중으로 비활성화한다. P-06 프로젝트 삭제와 P-13 GitHub App 연결 해제 버튼은 제공하지 않는다.
+- Project BFF는 HttpOnly 세션으로 AUTH-14 JWT를 서버에서 발급받아 고정 Project Origin에 Bearer로 전달한다. 변경 요청은 Origin·CSRF를 검사한다. P-01/P-07은 본문과 결합된 Idempotency-Key를 사용해 불확실한 실패를 같은 요청으로 재시도한다. JWT·서비스 키·세션 핸들은 브라우저 응답에 포함하지 않는다.
+
+## RepoQ GitHub App 연결 관리 (UI-REP-004, `/app/repoq/settings/github`)
+
+- GitHub 소셜 로그인과 별도로 GitHub App의 사용자 승인, 설치 승인, 접근 가능한 Repository를 확인한다. 프로젝트 목록은 이 화면으로 이동하지 않는다.
+- 사용자 승인 필요/완료/재승인 필요와 App 설치 필요/관리자 승인 대기/설치 완료를 독립적으로 표시한다. CSRF 보호된 BFF 시작 API를 호출한 뒤 검증된 GitHub URL로 이동한다.
+- GitHub App에 등록된 `/api/github/connections/callback`과 `/api/github/connections/setup` 경로는 유지한다. 완료 후 `/app/repoq/settings/github?result=...`로 돌아와 결과를 표시하고 Query를 제거한다. 기존 state·PKCE·iss·HttpOnly Attempt Cookie·세션 결합 검증을 유지한다.
+- Project가 확인한 Repository ID, 전체 이름, Public/Private를 30개씩 페이지로 표시한다. Private 등록은 후속 기능으로 안내한다. 로딩, 장애, 취소, 만료, 승인 대기, 거부를 구분한다.
+- 320·390·768·1440px 반응형, 키보드 포커스, 상태 알림, reduced motion을 확인한다. 실제 Auth·Project·GitHub 브라우저 E2E는 서비스가 기동된 경우에만 별도로 검증한다.

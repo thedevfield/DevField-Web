@@ -47,8 +47,8 @@ function ServiceCard({ service }: { service: Service }) {
       <p className={styles.cardDetail}>{service.detail}</p>
     </div>
     <div className={styles.cardBottom}>
-      <span className={styles.statusBadge}><span className={styles.statusDot} />{service.name === "RepoQ" ? "GitHub 연결" : service.status}</span>
-      {service.name === "RepoQ" ? <Link className={styles.headerLink} href="/app/repoq">GitHub App 연결 →</Link> : <span className={styles.unavailableLabel}>이용 준비 중</span>}
+      <span className={styles.statusBadge}><span className={styles.statusDot} />{service.status}</span>
+      {service.name === "RepoQ" ? <Link className={styles.headerLink} href="/app/repoq">내 프로젝트 →</Link> : <span className={styles.unavailableLabel}>이용 준비 중</span>}
     </div>
   </article>;
 }

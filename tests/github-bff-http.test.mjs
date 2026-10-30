@@ -71,6 +71,7 @@ test("GitHub App BFF binds the attempt to the session and validates Project resp
     const callback = (query, cookie) => get(`/api/github/connections/callback?${query}`, cookie);
     const attemptSession = `${baseCookie}; ${attemptCookie}`;
     const validQuery = `code=abc&state=${proof}&iss=${encodeURIComponent("https://github.com/login/oauth")}`;
+    assert.match((await callback("error=access_denied", attemptSession)).headers.get("location"), /\/app\/repoq\/settings\/github\?result=cancelled$/);
     for (const query of [
       `code=abc&state=${proof}&iss=${encodeURIComponent("https://evil.example/oauth")}`,
       `${validQuery}&iss=${encodeURIComponent("https://github.com/login/oauth")}`,
@@ -79,7 +80,7 @@ test("GitHub App BFF binds the attempt to the session and validates Project resp
       `${validQuery}&unexpected=1`,
     ]) assert.match((await callback(query, attemptSession)).headers.get("location"), /result=failed$/);
     assert.equal(calls.filter(x => x.path === "/api/github/connections/callback/complete").length, 0);
-    assert.match((await callback(validQuery, baseCookie)).headers.get("location"), /result=expired$/);
+    assert.match((await callback(validQuery, baseCookie)).headers.get("location"), /\/app\/repoq\/settings\/github\?result=expired$/);
     const forged = await callback(`code=abc&state=${"x".repeat(43)}`, attemptSession);
     assert.match(forged.headers.get("location") ?? `${forged.status}: ${await forged.text()} ${nextErrors}`, /result=expired$/);
     assert.equal(calls.filter(x => x.path === "/api/github/connections/callback/complete").length, 0);
@@ -95,12 +96,13 @@ test("GitHub App BFF binds the attempt to the session and validates Project resp
       { status: 403, code: "github_attempt_invalid" }, { status: 503, code: "github_unavailable" }]) {
       callbackFailure = failure;
       const failed = await callback(validQuery, attemptSession);
-      assert.match(failed.headers.get("location"), new RegExp(`result=${failure.status === 403 ? "expired" : "failed"}$`));
+      assert.match(failed.headers.get("location"), new RegExp(`/app/repoq/settings/github\\?result=${failure.status === 403 ? "expired" : "failed"}$`));
       assert.match(failed.headers.get("set-cookie") ?? "", /DF_GITHUB_ATTEMPT_DEV=;/);
     }
     callbackFailure = null;
     const completed = await callback(validQuery, attemptSession);
     assert.match(completed.headers.get("location"), /result=authorized$/);
+    assert.match(completed.headers.get("location"), /\/app\/repoq\/settings\/github\?result=authorized$/);
     assert.match(completed.headers.get("set-cookie") ?? "", /DF_GITHUB_ATTEMPT_DEV=;/);
     assert.doesNotMatch(completed.headers.get("location"), /code=|state=|iss=|jwt/);
     assert.match((await callback(`code=abc&state=${proof}`, baseCookie)).headers.get("location"), /result=expired$/);
@@ -113,7 +115,8 @@ test("GitHub App BFF binds the attempt to the session and validates Project resp
     const retry = await start(baseCookie); const retryCookie = retry.headers.get("set-cookie").split(";")[0];
     assert.match((await get("/api/github/connections/setup?installation_id=51&setup_action=install", `DF_WEB_SESSION_DEV=bob; ${retryCookie}`)).headers.get("location"), /result=expired$/);
     pending = true;
-    assert.match((await get("/api/github/connections/setup?installation_id=51&setup_action=install", `${baseCookie}; ${retryCookie}`)).headers.get("location"), /result=pending$/);
+    const pendingSetup = await get("/api/github/connections/setup?installation_id=51&setup_action=install", `${baseCookie}; ${retryCookie}`);
+    assert.match(pendingSetup.headers.get("location"), /\/app\/repoq\/settings\/github\?result=pending$/);
     assert.deepEqual(calls.filter(x => x.path === "/api/github/connections/setup/complete").map(x => x.input), [{ proof, installationId: 52, setupAction: "install" }, { proof, installationId: 51, setupAction: "install" }]);
     assert.deepEqual(await (await get("/api/github/repositories?page=1", "DF_WEB_SESSION_DEV=alice")).json(), { status: "INSTALLATION_PENDING", repositories: [], page: 1, hasNext: false });
     pending = false;
