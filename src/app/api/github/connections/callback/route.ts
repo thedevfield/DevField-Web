@@ -30,5 +30,5 @@ export async function GET(request: Request) {
     if (error instanceof BffError) result = error.code === "github_attempt_invalid" ? "expired" : error.code === "github_account_conflict" ? "conflict" : "failed";
   }
   await clearAttempt();
-  return new Response(null, { status: 303, headers: { Location: `${origin()}/app/repoq?result=${result}`, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+  return new Response(null, { status: 303, headers: { Location: `${origin()}/app/repoq/settings/github?result=${result}`, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
 }
