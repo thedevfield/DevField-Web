@@ -3,6 +3,7 @@ import { Code2, LockKeyhole, MessagesSquare, RefreshCw, ServerCog } from "lucide
 import type { LucideIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { WorkspaceHeroCarousel } from "./WorkspaceHeroCarousel";
 import styles from "./WorkspaceHome.module.css";
 
 type Service = {
@@ -57,15 +58,12 @@ export function WorkspaceHome() {
   return <div className={styles.page}>
     <WorkspaceHeader />
     <main className={styles.main}>
-      <section className={styles.hero} aria-labelledby="workspace-title">
-        <p className={styles.eyebrow}><span className={styles.eyebrowLine} /> YOUR WORKSPACE / DEVFIELD</p>
-        <h1 id="workspace-title">오늘은 어떤 역량을<br className={styles.desktopBreak} /> 키워볼까요?</h1>
-        <p className={styles.heroDescription}>DevField에서 훈련할 서비스를 선택하고<br className={styles.desktopBreak} /> 개발자로서의 다음 성장을 시작하세요.</p>
-      </section>
+      <p className={styles.workspaceOverline}>DEVFIELD / WORKSPACE</p>
+      <WorkspaceHeroCarousel />
       <section className={styles.services} aria-labelledby="services-title">
         <div className={styles.sectionHeading}>
-          <div><p className={styles.sectionEyebrow}>EXPLORE SERVICES</p><h2 id="services-title">성장을 위한 세 가지 필드</h2></div>
-          <p>각 서비스는 준비되는 대로 이용할 수 있습니다.</p>
+          <div><p className={styles.sectionEyebrow}>YOUR PRACTICE FIELDS</p><h2 id="services-title">세 가지 방식으로 연습하기</h2></div>
+          <p>RepoQ에서 프로젝트를 시작하고, 다음 필드를 살펴보세요.</p>
         </div>
         <div className={styles.serviceGrid}>{services.map((service) => <ServiceCard key={service.name} service={service} />)}</div>
       </section>
