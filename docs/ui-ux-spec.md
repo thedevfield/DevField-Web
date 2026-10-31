@@ -1,8 +1,8 @@
 # DevField-Web — 통합 IA 및 UI/UX 명세서
 
 > **브랜드:** DevField — `Practice. Solve. Grow.`  
-> **문서 버전:** v0.13 (Editorial Workspace Hero Carousel)
-> **기준일:** 2026-10-31
+> **문서 버전:** v0.14 (RepoQ Editorial Project Workspace)
+> **기준일:** 2026-11-01
 > **대상 저장소:** `thedevfield/DevField-Web`  
 > **권장 저장 위치:** `docs/ui-ux-spec.md` (파일명 고정)  
 > **관련 저장소:** `DevField-Auth`, `RepoQ`, `DevField-Platform`  
@@ -492,6 +492,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | v0.11 | 2026-10-28 | UI-COM-004 내 계정, Auth A-01 BFF 연동, Workspace 사용자 메뉴, ACTIVE·DELETING·오류 상태 추가 | 코드 및 HTTP 테스트 반영, 실제 계정 브라우저 E2E 대기 |
 | v0.12 | 2026-10-28 | Issue #9 보완: 현재 경로 메뉴, Account Overview 정보 위계, 실제 로딩 Skeleton, Empty State, User ID 복사 피드백 | 코드·Mock HTTP 검증, 실제 계정 브라우저 E2E 대기 |
 | v0.13 | 2026-10-31 | 승인된 A안 Workspace Hero Carousel, 세 서비스 Mock Preview, 일시정지·Reduced Motion·수동 선택 반영 | 코드 구현, 실제 브라우저 검증 결과는 작업 보고 참조 |
+| v0.14 | 2026-11-01 | RepoQ 프로젝트 목록·생성·상세에 A안 Editorial 레이아웃과 상태·Navigation 계층 반영 | 코드 구현, 실제 브라우저 검증 결과는 작업 보고 참조 |
 
 ---
 
@@ -543,9 +544,13 @@ OAuth LOGIN·SIGNUP·LINK·REAUTH에서 Auth는 Google·GitHub의 공식 계정 
 ## RepoQ 프로젝트 Workspace (UI-REP-001~004)
 
 - 책임: 공통 `/app`은 서비스 진입과 서비스별 활동 요약의 자리이며, RepoQ 프로젝트·Repository 관리는 RepoQ 내부에서 수행한다. `/account`는 공통 계정과 로그인 수단을 관리한다. 현재 제공되지 않는 활동 통계는 만들지 않는다.
+- **Editorial Project Workspace:** 승인된 A안의 Soft Canvas `#F6F8F7`, Ink Navy `#0B1220`, Emerald `#21C7A8`, 작은 영문 Kicker, 밝은 Surface와 명확한 행 구분을 적용한다. 공통 Workspace Hero와 브랜드를 공유하되 프로젝트 관리 화면은 정보 밀도를 높인다. `Workspace → RepoQ → 상세`, `RepoQ → 새 프로젝트`, `RepoQ → GitHub App 연결 관리` 경로를 Breadcrumb과 실제 링크로 구분한다.
 - `/app/repoq` (UI-REP-001): 로그인 세션 확인 후 사용자 소유 프로젝트의 이름, Repository 개수, 분석 상태, 상세 링크를 표시한다. 빈 목록, 로딩, Auth/Project 장애와 재시도를 구분한다. 새 프로젝트와 GitHub App 연결 관리로 이동한다.
+- **목록 표현:** 데스크톱에서는 프로젝트 이름·ID가 첫 열인 행형 목록을 사용하고 Repository 개수, 분석 상태, 상세 진입을 별도 열에 둔다. 모바일에서는 동일 데이터를 세로로 재배치한다. 상태는 텍스트와 색을 함께 사용한다. 정렬·검색·필터 API는 없다.
 - `/app/repoq/projects/new` (UI-REP-002): 이름 trim 후 1~100자, Public GitHub URL 1~20개를 입력한다. 빈 목록·중복 URL·잘못된 주소를 제출 전에 거부하고 서버가 실제 공개 여부와 안정 Repository ID를 다시 검증한다. Public URL 등록은 GitHub App 설치를 요구하지 않는다. 성공 시 상세로 이동한다.
+- **생성 표현:** 이름과 Repository 입력을 번호가 있는 두 구역으로 나누고, 각 URL 행에 번호·입력·제거를 표시한다. 데스크톱 설명 레일은 여러 Repository와 현재 가능한 범위를 안내한다. 모바일에서는 폼 아래로 옮긴다. 로딩·오류·중복 제출 방지와 요청 본문·CSRF·Idempotency-Key는 기존 구현을 유지한다.
 - `/app/repoq/projects/{id}` (UI-REP-003): 통합 분석 상태와 Repository별 이름·Public/Private·상태를 보여준다. 추가 P-07은 현재 전체 연결 목록을 반환하므로 상세를 재조회한다. 제거 P-08은 Member UUID를 사용하며 대상 이름·GitHub 원본 유지 안내를 포함한 확인 Dialog 후 처리한다. 마지막 1개 제거와 RUNNING Job 중 변경은 409 안내를 표시한다.
+- **상세 표현:** 데스크톱 주 영역에 Repository 목록·추가·제거를, 보조 영역에 분석 상태·프로젝트 정보·연습 준비 상태를 둔다. 모바일에서는 한 열로 재배치한다. 제거 Dialog는 Escape, Tab 순환, 닫힌 뒤 원래 Focus 복귀를 유지한다. 성공·오류 메시지는 각각 `role=status`·`role=alert`로 전달한다. 프로젝트 ID와 Repository 이름은 좁은 폭에서 줄바꿈한다.
 - 분석 Worker·Snapshot·Interview가 아직 없으므로 QUEUED를 READY로 바꾸지 않는다. `canInterview=false` 또는 Snapshot 부재 시 자유연습·모의면접은 준비 중으로 비활성화한다. P-06 프로젝트 삭제와 P-13 GitHub App 연결 해제 버튼은 제공하지 않는다.
 - Project BFF는 HttpOnly 세션으로 AUTH-14 JWT를 서버에서 발급받아 고정 Project Origin에 Bearer로 전달한다. 변경 요청은 Origin·CSRF를 검사한다. P-01/P-07은 본문과 결합된 Idempotency-Key를 사용해 불확실한 실패를 같은 요청으로 재시도한다. JWT·서비스 키·세션 핸들은 브라우저 응답에 포함하지 않는다.
 

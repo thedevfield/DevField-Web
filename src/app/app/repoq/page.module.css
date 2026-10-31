@@ -2,6 +2,7 @@
 .page :is(a,button):focus-visible{outline:3px solid var(--deep);outline-offset:3px}
 .main{width:min(100% - 40px,960px);margin:auto;padding:42px 0 90px}
 .back{color:var(--deep);font-size:13px;font-weight:750;text-decoration:none}.eyebrow{margin:24px 0 6px;color:var(--deep);font-size:11px;font-weight:800;letter-spacing:.15em}
+.breadcrumbs{display:flex;align-items:center;gap:9px;margin-bottom:25px;color:var(--muted);font-size:12px;font-weight:700}.breadcrumbs a{color:var(--deep);text-decoration:none}.breadcrumbs span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .main h1{margin:0;font-size:clamp(36px,6vw,62px);letter-spacing:-.06em;line-height:1.18}.lead{max-width:65ch;color:var(--muted);line-height:1.7;margin:16px 0 36px}
 .card{background:white;border:1px solid var(--line);border-radius:18px;padding:clamp(22px,4vw,34px);margin:18px 0;box-shadow:0 4px 16px #0b122006}.card h2{font-size:clamp(21px,3vw,28px);letter-spacing:-.05em;margin:0 0 18px}.card .eyebrow{margin:0 0 6px}
 .heading{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.heading button{background:var(--ink);color:white;border:0;border-radius:9px;padding:13px 18px;min-height:44px;font-weight:750;cursor:pointer}.heading button:disabled{opacity:.55;cursor:wait}
