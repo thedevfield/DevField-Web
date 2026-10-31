@@ -49,7 +49,7 @@ export function RepoQConnection() {
   const userText = status?.userAuthorization === "AUTHORIZED" ? "사용자 승인 완료" : status?.userAuthorization === "REAUTHORIZE" ? "사용자 재승인 필요" : "사용자 승인 필요";
   const installText = status?.installation === "INSTALLED" ? "설치 확인 완료" : status?.installation === "PENDING_APPROVAL" ? "관리자 승인 대기" : "App 설치 필요";
   return <main className={styles.main} id="main">
-    <Link className={styles.back} href="/app/repoq">← 내 프로젝트</Link>
+    <nav className={styles.breadcrumbs} aria-label="현재 위치"><Link href="/app/repoq">RepoQ</Link><span aria-hidden="true">/</span><span aria-current="page">GitHub App 연결 관리</span></nav>
     <p className={styles.eyebrow}>REPOQ / GITHUB APP</p>
     <h1><GitHubMark size={28} /> GitHub App 연결 관리</h1>
     <p className={styles.lead}>GitHub App 승인과 설치 상태를 확인합니다. Public Repository 프로젝트는 App 연결 없이도 URL로 만들 수 있습니다. DevField 로그인에 사용하는 GitHub 계정 연결과는 별개입니다.</p>

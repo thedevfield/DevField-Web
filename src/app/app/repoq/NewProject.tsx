@@ -36,18 +36,24 @@ export function NewProject() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "프로젝트를 만들지 못했습니다. 같은 내용으로 다시 시도할 수 있습니다."); }
     finally { setBusy(false); }
   }
-  return <main className={styles.main} id="main"><div className={styles.kicker}>REPOQ / NEW PROJECT</div>
-    <div className={styles.toolbar}><Link href="/app/repoq">← 내 프로젝트</Link></div>
-    <h1>새 프로젝트</h1><p className={styles.lead}>이름을 정하고 공개 Repository를 하나 이상 연결하세요. 분석은 등록 후 대기 상태로 표시됩니다.</p>
-    <form className={styles.formCard} onSubmit={event => void submit(event)}>
+  return <main className={styles.main} id="main">
+    <nav className={styles.breadcrumbs} aria-label="현재 위치"><Link href="/app/repoq">RepoQ</Link><span aria-hidden="true">/</span><span aria-current="page">새 프로젝트</span></nav>
+    <div className={styles.kicker}>PROJECT / CREATE</div>
+    <h1>새 프로젝트 만들기</h1><p className={styles.lead}>내가 설명하고 싶은 작업을 하나의 이름 아래 묶으세요.</p>
+    <div className={styles.formStage}><form className={styles.formCard} onSubmit={event => void submit(event)}>
+      <p className={styles.formSectionLabel}>01 / PROJECT</p>
       <label htmlFor="project-name">프로젝트 이름</label>
       <input id="project-name" value={name} required maxLength={100} disabled={busy} placeholder="예: DevField 면접 준비"
         onChange={event => setName(event.target.value)} />
       <p className={styles.help}>공백을 제외한 1~100자</p>
+      <div className={styles.formDivider} /><p className={styles.formSectionLabel}>02 / REPOSITORIES</p>
       <RepositoryFields rows={rows} onChange={setRows} disabled={busy} />
       {error && <p className={styles.error} role="alert">{error}</p>}
       <div className={styles.actions}><button type="submit" className={styles.primary} disabled={busy}>{busy ? "생성 중…" : "프로젝트 만들기"}</button>
         <Link className={styles.secondary} href="/app/repoq">취소</Link></div>
-    </form>
+    </form><aside className={styles.formRail} aria-label="프로젝트 등록 안내">
+      <div className={styles.editorialRail}><strong>하나의 프로젝트, 여러 Repository</strong><p>프론트엔드·백엔드 저장소를 하나의 프로젝트로 묶어 관리할 수 있습니다.</p></div>
+      <div className={styles.editorialRail}><strong>지금 가능한 범위</strong><p>Public Repository URL을 등록할 수 있습니다. 분석은 등록 후 대기 상태로 표시되며, Private 등록과 실제 분석은 준비 중입니다.</p></div>
+    </aside></div>
   </main>;
 }
