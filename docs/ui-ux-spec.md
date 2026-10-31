@@ -1,8 +1,8 @@
 # DevField-Web — 통합 IA 및 UI/UX 명세서
 
 > **브랜드:** DevField — `Practice. Solve. Grow.`  
-> **문서 버전:** v0.12 (Studio Editorial Tech 계정 상태 표현 보완)
-> **기준일:** 2026-10-28  
+> **문서 버전:** v0.13 (Editorial Workspace Hero Carousel)
+> **기준일:** 2026-10-31
 > **대상 저장소:** `thedevfield/DevField-Web`  
 > **권장 저장 위치:** `docs/ui-ux-spec.md` (파일명 고정)  
 > **관련 저장소:** `DevField-Auth`, `RepoQ`, `DevField-Platform`  
@@ -70,7 +70,7 @@
 | UI-AUTH-005 | `/signup/check-email` | 이메일 인증 안내 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | 가입 후 안내 |
 | UI-AUTH-006 | `/verify-email` | 이메일 인증 결과 | 비로그인 | Studio v2.1 UI 코드 구현, 브라우저 E2E 대기 | Auth BFF 연동 |
 | UI-AUTH-007 | `/auth/oauth/callback` | OAuth 완료·오류 | Provider 복귀 | Studio v2.1 UI 코드 구현, 실제 Provider E2E 대기 | 일회용 handoff BFF |
-| UI-COM-003 | `/app` | 공통 Workspace 홈 | 로그인 필요 | 코드 구현 | 서버 세션 확인·로그아웃 유지, 브라우저 E2E 대기 |
+| UI-COM-003 | `/app` | 공통 Workspace 홈 | 로그인 필요 | Editorial Hero Carousel 코드 구현 | 서버 세션 확인·로그아웃 유지, 브라우저 E2E 대기 |
 | UI-COM-004 | `/account` | 내 계정 | 유효한 AuthSession 필요 | 코드 구현 | ACTIVE·DELETING 조회, 브라우저 E2E 대기 |
 | UI-ACC-EMAIL-01 | `/account/email/verify` | 이메일 추가 소유권 확인·비밀번호 최초 설정 | 요청 당시 AuthSession 필요 | 코드 구현, Auth 통합 테스트 | Fragment 즉시 제거 |
 | UI-ACC-EMAIL-02 | `/reset-password` | 비밀번호 재설정 요청 | 비로그인 가능 | 코드 구현, BFF 테스트 | 계정 존재 무관 동일 안내 |
@@ -245,9 +245,11 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 
 - **경로:** `/app`.
 - **목적:** DevField 플랫폼의 로그인 후 공통 진입 화면에서 훈련 서비스를 소개한다.
-- **구성:** DF SVG·DevField·슬로건과 로그아웃을 담은 밝은 헤더, `오늘은 어떤 역량을 키워볼까요?` 제목과 성장 안내, RepoQ·AlgoField·InfraField 서비스 카드. 카드의 이름·설명·아이콘·상태는 공통 데이터 구조를 사용한다.
-- **서비스 상태:** RepoQ는 `개발 중`, AlgoField·InfraField는 `준비 중`으로 표시한다. 실제 서비스 진입 라우트가 연결되기 전에는 카드를 링크나 활성 버튼으로 제공하지 않는다. 프로젝트 목록·진행률·면접 결과·사용자 표시 이름 등 제공되지 않는 데이터는 만들지 않는다.
-- **반응형·접근성:** 3열 데스크톱, 2열 태블릿, 1열 모바일. 헤더의 브랜드와 로그아웃은 모바일에서도 유지한다. 키보드 Focus를 표시하고 Reduced Motion에서는 진입·Hover 모션을 제거한다.
+- **구성:** 밝은 헤더와 DF 로고·DevField·슬로건·로그아웃, 승인된 A안 Editorial Tech의 Ink Navy `#0B1220` Hero, 오른쪽 Mock 제품 창, 하단 서비스 카드. Hero는 RepoQ → AlgoField → InfraField 순서로 순환하며 각 서비스 제목·소개·상태를 보여준다. Soft Canvas `#F6F8F7`와 Emerald `#21C7A8`을 유지한다.
+- **Hero 동작:** 8초 간격 자동 전환, 세 Indicator 직접 선택과 타이머 초기화. Hero Hover·내부 Focus·탭 비활성 상태에서는 남은 시간을 보존하고 일시정지한다. Reduced Motion에서는 자동 전환하지 않으며 수동 선택은 가능하다. 각 전환 시 이전 Preview를 언마운트해 Reveal·Typing 애니메이션을 정리한다.
+- **Mock Preview:** RepoQ는 Repository → 코드 분석 → 면접 질문 → 답변 타이핑 → 꼬리질문, AlgoField는 문제 → 코드 → 실행 → 테스트 통과, InfraField는 정상 메트릭 → 장애 → 로그 → 원인 분석 → 대응 판단을 연출한다. Preview는 `aria-hidden`인 비대화형 콘셉트 UI이며 AI·GitHub·코드 실행·모니터링 API와 연결되지 않는다.
+- **서비스 상태:** RepoQ Hero CTA `RepoQ 시작하기`와 카드의 `내 프로젝트`만 `/app/repoq`로 이동한다. AlgoField·InfraField Hero는 `서비스 준비 중`이라는 비활성 표시이며 서비스 카드도 준비 중이다. 프로젝트 목록·진행률·면접 결과·사용자 표시 이름 등 제공되지 않는 데이터는 만들지 않는다.
+- **반응형·접근성:** Hero는 데스크톱 2열, 태블릿 비율 조정, 모바일 세로 배치. 서비스 카드는 3열·2열·1열이다. 320·390·768·1440px에서 가로 Overflow를 막고 CTA와 Indicator 간격을 유지한다. Indicator는 서비스명이 포함된 버튼과 `aria-pressed` 상태를 제공한다. Reduced Motion에서는 Preview 단계를 정적으로 모두 표시한다.
 - **접근 제어:** 서버 측 `requireSession()` 확인 후 Workspace를 렌더링한다. 401은 `/login`으로 이동하고 403은 계정 접근 불가 안내, Auth 장애는 재시도 가능한 별도 안내로 분기한다. 오류 상태에는 보호된 서비스 카드를 렌더링하지 않는다.
 - **로그아웃:** BFF를 통해 Auth 세션을 폐기한 뒤 Web Cookie 정리. 서버 폐기 실패 시 성공으로 표기하지 않는다.
 - **검증 기준:** 320·390·768·1440px에서 카드·텍스트·Focus·Reduced Motion, 새로고침/직접 접근, 401/403/503 상태 및 로그아웃을 확인한다. 실제 브라우저 E2E와 Auth 연동 검증 여부는 코드 구현 상태와 구분해 기록한다.
@@ -489,6 +491,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | v0.10 | 2026-10-28 | 공통 Auth 브랜드 강조: 960px 초과 50:50 Split, DF 96px·워드마크 60px, 960px 이하 단일 열 및 모바일 최소 크기 유지 | CSS·명세 반영, 검증 결과는 작업 보고 참조 |
 | v0.11 | 2026-10-28 | UI-COM-004 내 계정, Auth A-01 BFF 연동, Workspace 사용자 메뉴, ACTIVE·DELETING·오류 상태 추가 | 코드 및 HTTP 테스트 반영, 실제 계정 브라우저 E2E 대기 |
 | v0.12 | 2026-10-28 | Issue #9 보완: 현재 경로 메뉴, Account Overview 정보 위계, 실제 로딩 Skeleton, Empty State, User ID 복사 피드백 | 코드·Mock HTTP 검증, 실제 계정 브라우저 E2E 대기 |
+| v0.13 | 2026-10-31 | 승인된 A안 Workspace Hero Carousel, 세 서비스 Mock Preview, 일시정지·Reduced Motion·수동 선택 반영 | 코드 구현, 실제 브라우저 검증 결과는 작업 보고 참조 |
 
 ---
 
@@ -500,7 +503,7 @@ Splash 전환은 1370ms에 시작해 1850ms에 끝난다. Welcome의 로고·이
 | 이메일 확인 안내 | `/signup/check-email` | 메일함·스팸함 확인, 직접 접근 가능, 재발송 버튼 없음 | 코드 구현 |
 | 이메일 인증 결과 | `/verify-email#token=…` | Fragment 즉시 제거, 진행·성공·무효·만료·장애, 성공 후 이메일 로그인 | HTTP 연동 확인, 브라우저 E2E 대기 |
 | 이메일 로그인 | `/login/email` | 필드 오류·로딩, 성공 시 서버가 HttpOnly 세션 Cookie 설정 | HTTP 연동 확인, 브라우저 E2E 대기 |
-| 공통 Workspace 홈 | `/app` | 서버 측 세션 확인, 로그아웃, 장애와 미인증 상태 구분; 세 서비스 준비 상태 표시 | 코드 반영, 브라우저 E2E 대기 |
+| 공통 Workspace 홈 | `/app` | 서버 측 세션 확인, 로그아웃, 장애와 미인증 상태 구분; 세 서비스 Hero Carousel과 Mock Preview | 코드 반영, 브라우저 E2E 대기 |
 | OAuth 완료 | `/auth/oauth/callback` | Fragment에서 flowId·handoff 읽고 즉시 제거, 일회용 교환, 취소·실패 표시 | 코드 구현, 실제 Provider E2E 차단 |
 
 `/login`과 `/signup`의 이메일 버튼은 실제 흐름으로 이동한다. Google·Kakao·GitHub 버튼은 해당 Provider 설정과 검증이 완료되기 전까지 준비 중 상태를 유지한다. 설정된 Provider에 한하여 OAuth 시작은 최상위 브라우저 탐색으로 이어진다. 기존 Splash·Welcome·DF 로고와 공식 소셜 아이콘은 유지한다. 인증 화면은 v0.8에서 Dark Brand + Light Auth로 변경했다.

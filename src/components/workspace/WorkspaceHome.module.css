@@ -10,6 +10,7 @@
 .headerActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}.headerLink{min-height:44px;padding:0 13px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);text-decoration:none;border-radius:9px;font-size:13px;font-weight:750;white-space:nowrap;transition:background .18s ease,color .18s ease}.headerLink:hover,.headerLink:focus-visible{background:#edf5f1;color:var(--ink)}.headerLink[aria-current="page"]{color:var(--deep);background:#eaf8f1}
 .logout{min-width:0}.logout button{min-height:42px;padding:0 18px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:9px;font-size:13px;font-weight:750;transition:background .2s,border-color .2s,transform .2s}.logout button:hover:not(:disabled){background:#edf5f1;border-color:#a7c7bc;transform:translateY(-1px)}.logout button:disabled{cursor:wait;opacity:.65}.logout p{max-width:250px;margin:5px 0 0;color:#a33b42;font-size:12px;line-height:1.4}.logout p:empty{display:none}
 .main{width:min(100% - 64px,1200px);margin:0 auto;flex:1}
+.workspaceOverline{margin:40px 0 13px;color:var(--deep);font-size:11px;font-weight:800;letter-spacing:.16em}
 .hero{padding:clamp(62px,8vw,108px) 0 clamp(58px,7vw,94px);animation:riseIn .38s ease-out both}
 .eyebrow,.sectionEyebrow{margin:0;color:var(--deep);font-size:11px;font-weight:800;letter-spacing:.16em;line-height:1.5}
 .eyebrow{display:flex;align-items:center;gap:10px}.eyebrowLine{display:inline-block;width:24px;height:2px;background:var(--emerald)}
