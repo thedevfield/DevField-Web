@@ -1,4 +1,5 @@
 import test from "node:test";
+import { readyDetail, blockedDetail } from "./fixtures/analysis.mjs";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
@@ -19,7 +20,7 @@ const send = (res, status, value) => { res.writeHead(status, { "Content-Type": "
 test("RepoQ Project BFF validates input, ownership responses, and server-only credentials", { timeout: 120000 }, async () => {
   let authDown = false, projectDown = false, redirect = false, oversized = false, running = false, consentPolicy = "test-v1";
   let members = [member(memberA, "72", "org/one")];
-  let version = 1;
+  let version = 1, detailOverride, stall = false, stallBody = false;
   const calls = [], replay = new Map();
   const auth = createServer((req, res) => {
     if (authDown) return send(res, 503, { code: "auth_unavailable" });
@@ -30,6 +31,8 @@ test("RepoQ Project BFF validates input, ownership responses, and server-only cr
   const project = createServer(async (req, res) => {
     const input = await read(req);
     calls.push({ path: req.url, method: req.method, authorization: req.headers.authorization, key: req.headers["idempotency-key"], input });
+    if (stall) return;
+    if (stallBody) { res.writeHead(200, { "Content-Type": "application/json" }); res.write("{"); return; }
     if (projectDown) return send(res, 503, { code: "project_unavailable" });
     if (redirect) return res.writeHead(302, { Location: "https://evil.example/" }).end();
     if (oversized) return res.writeHead(200, { "Content-Type": "application/json", "Content-Length": "200000" }).end("{}");
@@ -50,7 +53,7 @@ test("RepoQ Project BFF validates input, ownership responses, and server-only cr
       replay.set(`create:${key}`, { fingerprint, data }); return send(res, 201, data);
     }
     if (req.url === `/api/projects/${other}`) return send(res, 404, { code: "project_not_found" });
-    if (req.url === `/api/projects/${id}` && req.method === "GET") return send(res, 200, { id, name: "Workspace", projectStatus: "ACTIVE", analysisStatus: running ? "RUNNING" : "QUEUED", canInterview: false,
+    if (req.url === `/api/projects/${id}` && req.method === "GET") return send(res, 200, detailOverride ?? { id, name: "Workspace", projectStatus: "ACTIVE", analysisStatus: running ? "RUNNING" : "QUEUED", canInterview: false,
       canPrivateInterview: false, latestReadySnapshot: null, membershipVersion: version, repositories: members });
     if (req.url === `/api/projects/${id}/repositories` && req.method === "POST") {
       if (running) return send(res, 409, { code: "analysis_in_progress" });
@@ -87,6 +90,37 @@ test("RepoQ Project BFF validates input, ownership responses, and server-only cr
     assert.equal((await get("/api/repoq/projects?owner=bob")).status, 400);
     assert.equal((await get(`/api/repoq/projects/${other}`)).status, 404);
     assert.equal((await get(`/api/repoq/projects/${id}`)).status, 200);
+    detailOverride = readyDetail(2);
+    const readyResponse = await get(`/api/repoq/projects/${id}`);
+    assert.equal(readyResponse.status, 200);
+    assert.match(readyResponse.headers.get("cache-control"), /no-store/);
+    assert.equal((await readyResponse.json()).latestReadySnapshot.members.length, 2);
+    detailOverride = readyDetail();
+    const evidence = detailOverride.latestReadySnapshot.evidenceReferences[0];
+    detailOverride.latestReadySnapshot.evidenceReferences = Array.from({ length: 200 }, (_, i) => ({
+      ...evidence, id: String(i + 100).padStart(8, "0") + "-1111-4111-8111-111111111111", summary: "x".repeat(1000),
+    }));
+    assert.ok(JSON.stringify(detailOverride).length > 131072);
+    assert.equal((await get("/api/repoq/projects/" + id)).status, 200);
+    detailOverride.latestReadySnapshot.evidenceReferences[0].lineEnd = -1;
+    assert.equal((await get(`/api/repoq/projects/${id}`)).status, 503);
+    detailOverride = blockedDetail();
+    const protectedResponse = await get(`/api/repoq/projects/${id}`);
+    assert.equal(protectedResponse.status, 200);
+    const protectedData = await protectedResponse.json();
+    assert.equal(protectedData.latestReadySnapshot, null);
+    assert.equal(protectedData.repositories[0].commitSha, null);
+    assert.doesNotMatch(JSON.stringify(protectedData), /Declares|src\/App|jwt-alice/);
+    detailOverride = undefined;
+    for (const bodyOnly of [false, true]) {
+      stall = !bodyOnly; stallBody = bodyOnly;
+      const started = Date.now();
+      const timedOut = await get(`/api/repoq/projects/${id}`);
+      assert.equal(timedOut.status, 503);
+      assert.deepEqual(await timedOut.json(), { code: "project_unavailable" });
+      assert.ok(Date.now() - started >= 7500 && Date.now() - started < 20000);
+      stall = false; stallBody = false;
+    }
     const csrf = await get("/api/auth/csrf"), csrfCookie = csrf.headers.get("set-cookie").split(";")[0];
     const { token } = await csrf.json();
     const cookie = `DF_WEB_SESSION_DEV=alice; ${csrfCookie}`;

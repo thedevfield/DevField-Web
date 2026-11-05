@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { Plus, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { csrfToken, messageFor, responseData, statusText, urlsOf, type Member, type ProjectDetail } from "./project-ui";
+import { analysisMessage, csrfToken, messageFor, responseData, statusText, urlsOf, type Member, type ProjectDetail } from "./project-ui";
+import { AnalysisSnapshotView } from "./AnalysisSnapshotView";
 import { GitHubMark } from "./GitHubMark";
 import { RepositoryFields } from "./RepositoryFields";
 import { PrivateRepositoryPicker, privateEntries, type Choice } from "./PrivateRepositoryPicker";
@@ -19,6 +20,7 @@ export function ProjectDetailView({ id, privateEnabled }: { id: string; privateE
   const [adding, setAdding] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
   const pending = useRef<{ body: string; key: string } | null>(null);
+  const request = useRef<AbortController | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!removeTarget) return;
@@ -37,15 +39,37 @@ export function ProjectDetailView({ id, privateEnabled }: { id: string; privateE
     return () => { document.removeEventListener("keydown", onKey); previous?.focus(); };
   }, [removeTarget, busy]);
   const load = useCallback(async () => {
-    setLoading(true); setError(""); setProject(null);
+    request.current?.abort();
+    const controller = new AbortController(); request.current = controller;
+    setLoading(true); setError(""); setProject(null); setRemoveTarget(null);
     try {
-      const response = await fetch(`/api/repoq/projects/${id}`, { cache: "no-store" });
+      const response = await fetch(`/api/repoq/projects/${id}`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]) });
+      if (controller.signal.aborted) return;
       if (response.status === 401) { window.location.assign("/login"); return; }
-      setProject(await responseData(response));
-    } catch (cause) { setProject(null); setError(cause instanceof Error ? cause.message : messageFor("project_unavailable")); }
-    finally { setLoading(false); }
+      const next: ProjectDetail = await responseData(response);
+      if (!controller.signal.aborted) setProject(next);
+    } catch (cause) { if (!controller.signal.aborted) { setProject(null);
+      setError(cause instanceof Error && cause.name === "Error" ? cause.message : messageFor("project_unavailable")); } }
+    finally { if (!controller.signal.aborted) setLoading(false); }
   }, [id]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const hide = () => { request.current?.abort(); setProject(null); setRemoveTarget(null); };
+    const visibility = () => { if (document.hidden) hide(); else void load(); };
+    const restored = (event: PageTransitionEvent) => { if (event.persisted) void load(); };
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("pagehide", hide);
+    window.addEventListener("pageshow", restored);
+    return () => { request.current?.abort(); document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("pagehide", hide); window.removeEventListener("pageshow", restored); };
+  }, [load]);
+  useEffect(() => {
+    if (!project || !project.latestReadySnapshot && !project.repositories.some(m => m.commitSha)) return;
+    // Expire visible protected data without spending anonymous GitHub quota on automatic polling.
+    const timer = window.setTimeout(() => { request.current?.abort(); setProject(null); setRemoveTarget(null);
+      setNotice("최신 공개 접근 확인을 위해 분석 상태를 다시 확인해 주세요."); }, 30000);
+    return () => window.clearTimeout(timer);
+  }, [project]);
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     setError(""); setNotice("");
@@ -94,7 +118,8 @@ export function ProjectDetailView({ id, privateEnabled }: { id: string; privateE
     {loading && !project && <p className={styles.notice} role="status">프로젝트를 불러오는 중입니다…</p>}
     {error && <div className={styles.error} role="alert"><p>{error}</p>{!project && <button type="button" className={styles.secondary} onClick={() => void load()}><RefreshCw size={16} /> 다시 시도</button>}</div>}
     {notice && <p className={styles.notice} role="status">{notice}</p>}
-    {project && <><div className={styles.detailHeading}><div><h1>{project.name}</h1><p className={styles.projectId}>프로젝트 ID · {project.id}</p></div>
+    <button type="button" className={styles.secondary} disabled={loading || busy} onClick={() => void load()}><RefreshCw size={16} /> 분석 상태 다시 확인</button>
+    {project && project.id === id && <><div className={styles.detailHeading}><div><h1>{project.name}</h1><p className={styles.projectId}>프로젝트 ID · {project.id}</p></div>
       <span className={styles.badge} data-status={project.analysisStatus}>{statusText[project.analysisStatus] ?? project.analysisStatus}</span></div>
       <div className={styles.detailLayout}><div className={styles.detailPrimary}>
       <section className={styles.card} aria-labelledby="repo-title"><div className={styles.heroRow}><div><div className={styles.kicker}>REPOSITORIES</div><h2 id="repo-title">연결된 Repository <span className={styles.countLabel}>{project.repositories.length}개</span></h2></div>
@@ -111,17 +136,16 @@ export function ProjectDetailView({ id, privateEnabled }: { id: string; privateE
           <PrivateRepositoryPicker enabled={privateEnabled} disabled={busy} choices={privateChoices} onChange={setPrivateChoices} />
           <div className={styles.actions}><button type="submit" className={styles.primary} disabled={busy}>{busy ? "추가 중…" : "Repository 추가"}</button>
             <button type="button" className={styles.secondary} disabled={busy} onClick={() => setAdding(false)}>취소</button></div></form>}
-      </section></div><aside className={styles.detailAside} aria-label="프로젝트 상태 및 정보">
+      </section>
+      {project.latestReadySnapshot && <AnalysisSnapshotView snapshot={project.latestReadySnapshot} repositories={project.repositories} previous={project.analysisStatus !== "READY"} />}
+      </div><aside className={styles.detailAside} aria-label="프로젝트 상태 및 정보">
       <section className={`${styles.card} ${styles.analysisCard}`}><div className={styles.kicker}>ANALYSIS / STATUS</div><h2>분석 상태</h2>
         <span className={styles.badge} data-status={project.analysisStatus}>{statusText[project.analysisStatus] ?? project.analysisStatus}</span>
-        <p>{project.analysisStatus === "QUEUED" ? "Repository 등록이 완료됐습니다. 분석 작업이 시작되기를 기다리고 있습니다." :
-          project.analysisStatus === "RUNNING" ? "분석 중에는 Repository 구성을 변경할 수 없습니다." :
-          project.analysisStatus === "FAILED" ? "분석에 실패했습니다. 현재 분석 결과는 제공되지 않습니다." :
-          project.analysisStatus === "INSUFFICIENT_EVIDENCE" ? "분석 근거가 부족합니다. 현재 면접을 시작할 수 없습니다." :
-          "현재 사용할 수 있는 분석 결과가 없습니다."}</p>
+        <p>{analysisMessage[project.repositories.some(m => m.accessStatus === "BLOCKED") ? "BLOCKED" : project.analysisStatus]}</p>
+        {project.repositories.some(m => m.visibility === "PRIVATE") && <p>Private 분석은 아직 지원하지 않습니다. Private가 포함된 구성은 Public 부분 결과로 게시하지 않습니다.</p>}
       </section>
       <section className={styles.card}><div className={styles.kicker}>PROJECT CONTEXT</div><h2>프로젝트 정보</h2>
-        <dl className={styles.metaList}><div><dt>프로젝트 ID</dt><dd>{project.id}</dd></div><div><dt>Repository</dt><dd>{project.repositories.length}개</dd></div><div><dt>분석 상태</dt><dd>{statusText[project.analysisStatus] ?? project.analysisStatus}</dd></div><div><dt>면접 가능</dt><dd>{project.canInterview && project.latestReadySnapshot ? "가능" : "아직 불가"}</dd></div></dl>
+        <dl className={styles.metaList}><div><dt>프로젝트 ID</dt><dd>{project.id}</dd></div><div><dt>Repository</dt><dd>{project.repositories.length}개</dd></div><div><dt>분석 상태</dt><dd>{statusText[project.analysisStatus] ?? project.analysisStatus}</dd></div><div><dt>면접 가능</dt><dd>아직 불가</dd></div></dl>
       </section>
       <section className={styles.card}><div className={styles.kicker}>PRACTICE / INTERVIEW</div><h2>연습과 모의면접</h2>
         <p className={styles.help}>분석 결과와 면접 기능이 준비되면 이용할 수 있습니다. 현재 면접 질문이나 평가를 생성하지 않습니다.</p>
