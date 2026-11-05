@@ -49,16 +49,16 @@ export function ProjectDetailView({ id, privateEnabled }: { id: string; privateE
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     setError(""); setNotice("");
+    setBusy(true);
     let body: string;
     try {
       const publicRows = rows.filter(row => row.trim());
-      const repositories = [...(publicRows.length ? urlsOf(publicRows) : []), ...privateEntries(privateChoices)];
+      const repositories = [...(publicRows.length ? urlsOf(publicRows) : []), ...await privateEntries(privateChoices, setPrivateChoices)];
       if (!repositories.length || repositories.length > 20) throw new Error("Repository를 1~20개 선택해 주세요.");
       body = JSON.stringify({ repositories });
     }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Repository URL을 확인해 주세요."); return; }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Repository URL을 확인해 주세요."); setBusy(false); return; }
     if (pending.current?.body !== body) pending.current = { body, key: crypto.randomUUID() };
-    setBusy(true);
     try {
       const csrf = await csrfToken();
       const response = await fetch(`/api/repoq/projects/${id}/repositories`, { method: "POST", cache: "no-store",

@@ -18,17 +18,17 @@ export function NewProject({ privateEnabled }: { privateEnabled: boolean }) {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     setError("");
+    setBusy(true);
     let body: string;
     try {
       const trimmed = name.trim();
       if (!trimmed || trimmed.length > 100) throw new Error("프로젝트 이름은 1~100자로 입력해 주세요.");
       const publicRows = rows.filter(row => row.trim());
-      const repositories = [...(publicRows.length ? urlsOf(publicRows) : []), ...privateEntries(privateChoices)];
+      const repositories = [...(publicRows.length ? urlsOf(publicRows) : []), ...await privateEntries(privateChoices, setPrivateChoices)];
       if (!repositories.length || repositories.length > 20) throw new Error("Repository를 1~20개 선택해 주세요.");
       body = JSON.stringify({ name: trimmed, repositories });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "입력 내용을 확인해 주세요."); return; }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "입력 내용을 확인해 주세요."); setBusy(false); return; }
     if (pending.current?.body !== body) pending.current = { body, key: crypto.randomUUID() };
-    setBusy(true);
     try {
       const csrf = await csrfToken();
       const response = await fetch("/api/repoq/projects", { method: "POST", cache: "no-store",

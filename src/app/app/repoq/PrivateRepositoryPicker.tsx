@@ -4,21 +4,14 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { responseData } from "./project-ui";
 import styles from "./workspace.module.css";
 
-export type ConsentDecision = "GRANTED" | "DENIED";
-export type ConsentStatus = { githubRepositoryId: string; currentPolicyVersion: string | null; consentSubmissionAvailable: boolean;
-  consents: { purpose: "PRIVATE_COLLECTION" | "EXTERNAL_AI"; decision: ConsentDecision | "REVOKED" | null; policyVersion: string | null }[] };
-export type Choice = { id: string; name: string; status: ConsentStatus | null; collection: ConsentDecision | ""; ai: ConsentDecision | ""; error: string };
+import { cleanupPending, privateEntries as checkedEntries, type ConsentDecision, type ConsentStatus, type Choice } from "./consents";
+export type { Choice } from "./consents";
 type Listing = { status: string; repositories: { id: number; fullName: string; private: boolean }[]; page: number; hasNext: boolean };
 
-export function privateEntries(choices: Choice[]) {
-  return choices.map(choice => {
-    if (!choice.status?.consentSubmissionAvailable || !choice.status.currentPolicyVersion || choice.collection !== "GRANTED" || !choice.ai)
-      throw new Error("Private Repository의 현재 정책과 두 목적의 결정을 확인해 주세요.");
-    return { githubRepositoryId: choice.id, consents: [
-      { purpose: "PRIVATE_COLLECTION", decision: choice.collection, policyVersion: choice.status.currentPolicyVersion },
-      { purpose: "EXTERNAL_AI", decision: choice.ai, policyVersion: choice.status.currentPolicyVersion },
-    ] };
-  });
+export async function privateEntries(choices: Choice[], onChange: Dispatch<SetStateAction<Choice[]>>) {
+  try {
+    return await checkedEntries(choices, async id => responseData(await fetch(`/api/github/repositories/${id}/consents`, { cache: "no-store" })));
+  } catch (cause) { onChange([]); throw cause; }
 }
 
 export function PrivateRepositoryPicker({ enabled, disabled, choices, onChange }: { enabled: boolean; disabled: boolean; choices: Choice[]; onChange: Dispatch<SetStateAction<Choice[]>> }) {
@@ -41,8 +34,8 @@ export function PrivateRepositoryPicker({ enabled, disabled, choices, onChange }
     onChange(current => [...current, next]);
     try {
       const status = await responseData(await fetch(`/api/github/repositories/${id}/consents`, { cache: "no-store" })) as ConsentStatus;
-      onChange(current => current.map(choice => choice.id === id ? { ...choice, status } : choice));
-    } catch { onChange(current => current.map(choice => choice.id === id ? { ...choice, error: "동의 상태를 확인할 수 없습니다. 다시 선택해 주세요." } : choice)); }
+      onChange(current => current.map(choice => choice === next ? { ...choice, status } : choice));
+    } catch { onChange(current => current.map(choice => choice === next ? { ...choice, error: "동의 상태를 확인할 수 없습니다. 다시 선택해 주세요." } : choice)); }
   }
   function decide(id: string, field: "collection" | "ai", decision: ConsentDecision) {
     onChange(current => current.map(choice => choice.id === id ? { ...choice, [field]: decision } : choice));
@@ -54,22 +47,24 @@ export function PrivateRepositoryPicker({ enabled, disabled, choices, onChange }
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {listing?.status !== "CONNECTED" ? <p className={styles.help}>{listing ? "GitHub App 연결 또는 설치 승인이 필요합니다." : "접근 가능한 Repository를 확인하는 중입니다."}</p> : <>
       {listing.repositories.filter(repo => repo.private).map(repo => <label className={styles.privateChoice} key={repo.id}>
-        <input type="checkbox" checked={choices.some(choice => choice.id === String(repo.id))} onChange={() => void toggle(repo)} />{repo.fullName}
+        <input type="checkbox" checked={choices.some(choice => choice.id === String(repo.id))} onChange={() => void toggle(repo)} />{choices.some(c => c.id === String(repo.id) && (!c.status || cleanupPending(c.status))) ? `Repository ID ${repo.id}` : repo.fullName}
       </label>)}
       {!listing.repositories.some(repo => repo.private) && <p className={styles.help}>이 페이지에 접근 가능한 Private Repository가 없습니다.</p>}
       <div className={styles.actions}><button type="button" className={styles.secondary} disabled={page === 1} onClick={() => setPage(page - 1)}>이전</button>
         <span>{page} 페이지</span><button type="button" className={styles.secondary} disabled={!listing.hasNext} onClick={() => setPage(page + 1)}>다음</button></div>
     </>}
     {choices.map(choice => <div className={styles.card} key={choice.id}>
-      <strong>{choice.name}</strong>
+      <strong>{choice.status && !cleanupPending(choice.status) ? choice.name : `Repository ID ${choice.id}`}</strong>
       {choice.error && <p role="alert" className={styles.error}>{choice.error}</p>}
       {!choice.status && !choice.error && <p role="status">동의 상태를 확인하는 중입니다…</p>}
       {choice.status && <>
         <p className={styles.help}>현재 정책 버전: {choice.status.currentPolicyVersion ?? "미설정"}</p>
         {choice.status.consents.map(consent => <p className={styles.help} key={consent.purpose}>{consent.purpose === "PRIVATE_COLLECTION" ? "수집·분석" : "외부 AI 처리"}: {consent.decision ?? "미결정"} · 기록 버전 {consent.policyVersion ?? "없음"}{consent.policyVersion && consent.policyVersion !== choice.status?.currentPolicyVersion ? " (이전 버전)" : ""}</p>)}
-        {!choice.status.consentSubmissionAvailable ? <p role="status" className={styles.help}>현재 정책 버전이 설정되지 않아 신규 동의를 제출할 수 없습니다.</p> : <>
+        {cleanupPending(choice.status) ? <p role="status" className={styles.help}>철회 정리를 확인 중입니다. Private 재승인·등록·추가는 제한됩니다. 이 항목을 해제하면 Public 등록을 계속할 수 있습니다.</p> : !choice.status.consentSubmissionAvailable ? <p role="status" className={styles.help}>현재 정책 버전이 설정되지 않아 신규 동의를 제출할 수 없습니다.</p> : <>
           <fieldset><legend>Private 코드 수집·분석 동의</legend><label><input type="radio" name={`collection-${choice.id}`} checked={choice.collection === "GRANTED"} onChange={() => decide(choice.id, "collection", "GRANTED")} /> 동의</label><label><input type="radio" name={`collection-${choice.id}`} checked={choice.collection === "DENIED"} onChange={() => decide(choice.id, "collection", "DENIED")} /> 거부</label></fieldset>
-          <fieldset><legend>Private 코드를 외부 AI 모델로 처리하는 데 동의</legend><label><input type="radio" name={`ai-${choice.id}`} checked={choice.ai === "GRANTED"} onChange={() => decide(choice.id, "ai", "GRANTED")} /> 동의</label><label><input type="radio" name={`ai-${choice.id}`} checked={choice.ai === "DENIED"} onChange={() => decide(choice.id, "ai", "DENIED")} /> 거부</label></fieldset>
+          {choice.status.consents.some(c => c.decision === "REVOKED") && <p className={styles.help}>NO_DERIVED_DATA는 현재 파생 데이터가 없다는 뜻입니다. 접근 허용이 아니며 새 명시적 동의와 서버 권한 확인이 필요합니다.</p>}
+          {choice.status.consents.some(c => c.purpose === "EXTERNAL_AI" && ["GRANTED", "REVOKED"].includes(c.decision ?? "")) && <p className={styles.help}>기존 외부 AI 동의를 거부로 바꿀 수 없습니다. 동의 관리에서 철회할 수 있으며, 외부 AI 철회를 유지한 신규 등록은 현재 계약에서 지원하지 않습니다.</p>}
+          <fieldset><legend>Private 코드를 외부 AI 모델로 처리하는 데 동의</legend><label><input type="radio" name={`ai-${choice.id}`} checked={choice.ai === "GRANTED"} onChange={() => decide(choice.id, "ai", "GRANTED")} /> 동의</label><label><input type="radio" name={`ai-${choice.id}`} disabled={choice.status.consents.some(c => c.purpose === "EXTERNAL_AI" && ["GRANTED", "REVOKED"].includes(c.decision ?? ""))} checked={choice.ai === "DENIED"} onChange={() => decide(choice.id, "ai", "DENIED")} /> 거부</label></fieldset>
         </>}
       </>}
     </div>)}

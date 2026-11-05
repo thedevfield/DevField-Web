@@ -13,6 +13,7 @@ const errors: Record<string, number[]> = {
   project_not_found: [404], repository_not_found: [404], invalid_session: [401], invalid_token: [401],
   account_unavailable: [403], auth_unavailable: [503], github_unavailable: [503], github_rate_limited: [503],
   project_unavailable: [503], private_repository_not_supported: [400], private_collection_consent_required: [403],
+  revocation_in_progress: [409], revocation_required: [409],
   private_access_unavailable: [403], github_access_denied: [403], github_pagination_limit: [503], github_reauthorization_required: [401],
 };
 

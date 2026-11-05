@@ -1,4 +1,5 @@
 import test from "node:test";
+import { consentDecisions } from "../src/app/app/repoq/consents.ts";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
@@ -210,6 +211,15 @@ test("GitHub App BFF binds the attempt to the session and validates Project resp
     assert.equal(saved.consents[0].policyVersion, "test-v2");
     assert.equal(saved.consents[1].decision, "REVOKED");
     assert.equal(saved.consents[1].policyVersion, "test-v1");
+    consentState.EXTERNAL_AI = { ...consentState.EXTERNAL_AI, cleanupState: "NO_DERIVED_DATA" };
+    consentVersion = "test-v3";
+    saved = await (await get(consentPath, "DF_WEB_SESSION_DEV=alice")).json();
+    const renewed = { consents: consentDecisions(saved, "GRANTED", "GRANTED") };
+    assert.equal((await put(consentPath, renewed)).status, 200);
+    saved = await (await get(consentPath, "DF_WEB_SESSION_DEV=alice")).json();
+    assert.deepEqual(saved.consents.map(c => [c.decision, c.policyVersion, c.cleanupState]),
+      [["GRANTED", "test-v3", null], ["GRANTED", "test-v3", null]]);
+    assert.deepEqual(calls.filter(c => c.path === consentPath && c.input.consents).at(-1).input, renewed);
     const disconnect = (path, headers = {}) => fetch(webOrigin + path, { method: "DELETE", headers: { Cookie: baseCookie, Origin: webOrigin, "x-devfield-csrf": token, ...headers } });
     assert.equal((await disconnect(`/api/github/connections/${connectionId}`, { Origin: "https://evil.example" })).status, 403);
     assert.equal((await disconnect("/api/github/connections/not-a-uuid")).status, 400);

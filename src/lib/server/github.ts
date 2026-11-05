@@ -1,3 +1,4 @@
+import type { ConsentStatus } from "@/app/app/repoq/consents";
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
@@ -66,7 +67,7 @@ export async function project(path: string, token: string, method: "GET" | "POST
     const allowed: Record<string, number[]> = {
       invalid_request: [400], invalid_token: [401], invalid_session: [401], account_unavailable: [403],
       repository_not_found: [404], connection_not_found: [404], consent_not_owned: [403],
-      revocation_required: [409], revocation_in_progress: [409],
+      private_access_unavailable: [403], revocation_required: [409], revocation_in_progress: [409],
       github_attempt_invalid: [403], github_account_conflict: [409], github_identity_mismatch: [403],
       github_access_denied: [403], github_installation_unavailable: [403], github_reauthorization_required: [401],
       github_rate_limited: [503, 429], github_unavailable: [503], github_pagination_limit: [503],
@@ -87,7 +88,7 @@ export function statusOf(value: Record<string, unknown>): Status {
   return { userAuthorization: value.userAuthorization, installation: value.installation, connectionId: value.connectionId } as Status;
 }
 
-export function consentStatusOf(value: Record<string, unknown>, id: string) {
+export function consentStatusOf(value: Record<string, unknown>, id: string): ConsentStatus {
   if (value.githubRepositoryId !== id || !(value.currentPolicyVersion === null || typeof value.currentPolicyVersion === "string" && value.currentPolicyVersion.length > 0 && value.currentPolicyVersion.length <= 100) ||
       typeof value.consentSubmissionAvailable !== "boolean" || value.consentSubmissionAvailable !== (value.currentPolicyVersion !== null) ||
       !Array.isArray(value.consents) || value.consents.length !== 2) return unavailable();

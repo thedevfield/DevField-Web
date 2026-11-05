@@ -1,11 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { csrfToken, responseData } from "./project-ui";
-import type { ConsentDecision, ConsentStatus } from "./PrivateRepositoryPicker";
+import { consentDecisions, type ConsentStatus, type Purpose, type Decision } from "./consents";
 import styles from "./workspace.module.css";
 
-type Purpose = "PRIVATE_COLLECTION" | "EXTERNAL_AI";
-type Decision = ConsentDecision | "REVOKED" | "";
 const label = (purpose: Purpose) => purpose === "PRIVATE_COLLECTION" ? "수집·분석" : "외부 AI 처리";
 const description = (decision: ConsentStatus["consents"][number]["decision"]) =>
   decision === "GRANTED" ? "동의함" : decision === "DENIED" ? "거부함" : decision === "REVOKED" ? "철회됨" : "미결정";
@@ -21,7 +19,7 @@ export function ConsentManager({ repositoryId, privateEnabled }: { repositoryId:
   const dialog = useRef<HTMLDialogElement>(null);
 
   async function load() {
-    setError("");
+    setState(undefined); setCollection(""); setAi(""); setError("");
     try { setState(await responseData(await fetch(`/api/github/repositories/${repositoryId}/consents`, { cache: "no-store" }))); }
     catch { setState(undefined); setError("저장된 동의 상태를 확인할 수 없습니다."); }
   }
@@ -42,17 +40,13 @@ export function ConsentManager({ repositoryId, privateEnabled }: { repositoryId:
   }
 
   function previous(purpose: Purpose) { return state?.consents.find(c => c.purpose === purpose); }
-  function version(purpose: Purpose, decision: Decision) {
-    const prior = previous(purpose);
-    return decision === "REVOKED" ? null : decision === prior?.decision ? prior.policyVersion : state?.currentPolicyVersion ?? null;
-  }
   function grantAllowed(purpose: Purpose) {
     const prior = previous(purpose);
     return prior?.decision !== "REVOKED" || prior.cleanupState === "NO_DERIVED_DATA";
   }
   function grantOptionDisabled(purpose: Purpose) {
     const prior = previous(purpose);
-    return !grantAllowed(purpose) || !privateEnabled && prior?.decision !== "GRANTED";
+    return !grantAllowed(purpose) || !privateEnabled && (prior?.decision !== "GRANTED" || prior.policyVersion !== state?.currentPolicyVersion);
   }
   async function submit() {
     if (!state?.consentSubmissionAvailable || !state.currentPolicyVersion || !collection || !ai) {
@@ -64,7 +58,8 @@ export function ConsentManager({ repositoryId, privateEnabled }: { repositoryId:
         decision === "GRANTED" && grantOptionDisabled(purpose))) {
       setError("현재 상태에서는 선택한 결정을 제출할 수 없습니다."); return;
     }
-    await send(decisions.map(([purpose, decision]) => ({ purpose, decision, policyVersion: version(purpose, decision) })));
+    try { await send(consentDecisions(state, collection, ai)); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "동의 상태를 다시 확인해 주세요."); }
   }
   async function revoke() {
     if (!target || !["GRANTED", "REVOKED"].includes(previous(target)?.decision ?? "")) return;
@@ -91,7 +86,7 @@ export function ConsentManager({ repositoryId, privateEnabled }: { repositoryId:
       </div>)}
       {!state.consentSubmissionAvailable && <p role="status" className={styles.help}>현재 정책 버전이 없어 신규 동의·거부는 제출할 수 없습니다. 기존 동의 철회는 가능합니다.</p>}
       {state.consentSubmissionAvailable && <>
-        <p className={styles.help}>새 결정은 현재 정책 버전을 사용합니다. Private 코드 사용에는 GitHub App 연결과 Repository 접근 권한도 필요합니다. 두 목적의 결정을 각각 선택해 주세요.</p>
+        <p className={styles.help}>새 결정은 현재 정책 버전을 사용합니다. 과거 동의는 자동 갱신하지 않습니다. 두 목적의 결정을 각각 명시적으로 선택해 주세요. Private 코드 사용에는 GitHub App 연결과 Repository 접근 권한도 필요합니다.</p>
         {choices.map(choice => <label key={choice.purpose}>{label(choice.purpose)} 결정 <select value={choice.value} disabled={busy} onChange={event => choice.set(event.target.value as Decision)}>
           <option value="">선택</option>
           <option value="GRANTED" disabled={grantOptionDisabled(choice.purpose)}>동의</option>

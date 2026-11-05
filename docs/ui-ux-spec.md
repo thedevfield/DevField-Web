@@ -569,3 +569,8 @@ OAuth LOGIN·SIGNUP·LINK·REAUTH에서 Auth는 Google·GitHub의 공식 계정 
 - GitHub App 관리 화면은 Repository별 최신 결정·기록 버전·현재 버전·목적별 `cleanupState`를 표시한다. 새 동의·거부의 두 목적 요청은 유지한다. 철회는 확인 Dialog 후 대상 목적 하나만 `REVOKED`, `policyVersion:null`로 제출하며 다른 목적의 결정과 버전을 보내거나 변경하지 않는다. 기존 허용을 거부로 우회하지 않고 `200 UPDATED`와 `202 BLOCKED`를 구분한다. 등록 Gate 또는 현재 정책 버전이 비활성이라도 과거 본인 동의의 철회와 P-13 연결 해제는 가능하다. `REVOKED`의 정리 상태가 `NO_DERIVED_DATA`일 때만 현재 정책 버전을 확인해 명시적 재동의 절차를 제공한다. 그 외 상태는 재동의를 제한하며 GitHub App 권한은 별도로 다시 확인한다.
 - P-13 연결 해제 전 확인 Dialog에서 RepoQ Private 접근 차단, GitHub 원본 보존, DevField GitHub 소셜 로그인과의 분리를 설명한다. `202` 후 상태를 다시 조회하며 `DISCONNECTED`를 표시한다. 차단된 Private 상세는 서버가 가린 이름·ID를 복원하지 않고 “접근 권한 없음”으로 표시한다. Public 항목은 계속 표시한다.
 - 실제 GitHub 권한 변경·철회 Webhook E2E, TokenCipher 키 교체, 최종 정책 문구 승인 전에는 Private 기능을 운영에 공개하지 않는다. Mock Backend BFF 검증과 실제 브라우저·GitHub E2E 결과는 별도로 기록한다.
+
+- 정책 버전 변경 후에도 두 목적의 선택은 빈 상태에서 시작한다. 각각 명시적으로 선택한 GRANTED/DENIED는 현재 정책 버전으로 전송하며, 과거 GRANTED를 새 버전으로 자동 승인하지 않는다. 등록 Gate가 꺼져 있으면 새 버전 GRANTED도 제한한다. 단일 목적 REVOKED는 계속 `policyVersion:null`로 보낸다.
+- Picker는 선택 시와 등록·추가 직전에 동의를 조회한다. 조회 실패 또는 선택 이후 결정·정책·정리 상태 변경 시 선택을 해제하고 다시 확인하도록 안내한다. 이전 상태로 Private 제출하지 않으며 Public만 등록하는 경로는 조회가 필요 없다.
+- 어느 목적이든 REVOKED의 cleanupState가 PENDING·null·알 수 없는 상태이면 Private 등록·추가를 제한하고 이전 선택 이름 대신 ID를 표시한다. `revocation_in_progress`는 정리 진행 안내로 표시한다. NO_DERIVED_DATA는 현재 파생 데이터가 없다는 뜻이며 삭제 완료나 접근 권한 부여를 뜻하지 않는다. 새 동의와 현재 GitHub 사용자/App 권한은 Backend에서 재검증한다.
+- EXTERNAL_AI의 기존 GRANTED/REVOKED를 DENIED로 덮지 않는다. 외부 AI 철회를 유지한 채 새 Private 등록하는 요청은 현재 두 목적 계약으로 표현할 수 없으므로 안내하고 제한한다. 기존 유효한 로컬 수집 권한을 Web에서 철회하지 않는다. 두 등록 Gate의 기본 비활성 정책은 유지한다.
