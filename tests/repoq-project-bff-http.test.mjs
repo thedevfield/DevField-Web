@@ -34,6 +34,13 @@ test("RepoQ Project BFF validates input, ownership responses, and server-only cr
     if (redirect) return res.writeHead(302, { Location: "https://evil.example/" }).end();
     if (oversized) return res.writeHead(200, { "Content-Type": "application/json", "Content-Length": "200000" }).end("{}");
     if (req.headers.authorization !== "Bearer jwt-alice") return send(res, 401, { code: "invalid_token" });
+    if (req.url === "/api/github/repositories/72/consents" && req.method === "GET") return send(res, 200, {
+      githubRepositoryId: "72", currentPolicyVersion: "test-v1", consentSubmissionAvailable: true, consents: [
+        { purpose: "PRIVATE_COLLECTION", decision: "GRANTED", policyVersion: "test-v1" },
+        { purpose: "EXTERNAL_AI", decision: "DENIED", policyVersion: "test-v1" },
+      ],
+    });
+    if (req.url === "/api/github/repositories/72/consents" && req.method === "PUT") return send(res, 202, { revocationId: other, status: "BLOCKED" });
     if (req.url === "/api/projects" && req.method === "GET")
       return send(res, 200, [{ id, name: "Workspace", analysisStatus: "QUEUED", repositoryCount: members.length, privateRepositoryCount: 0, canInterview: false }]);
     if (req.url === "/api/projects" && req.method === "POST") {
@@ -86,6 +93,15 @@ test("RepoQ Project BFF validates input, ownership responses, and server-only cr
     const post = (path, input, key, headers = {}) => fetch(webOrigin + path, { method: "POST", redirect: "manual",
       headers: { Cookie: cookie, Origin: webOrigin, "x-devfield-csrf": token, "Content-Type": "application/json", "Idempotency-Key": key, ...headers }, body: JSON.stringify(input) });
     const create = { name: " Workspace ", repositories: [{ repositoryUrl: "https://github.com/org/one" }, { repositoryUrl: "https://github.com/org/two" }] };
+    const privateInput = { name: "Private", repositories: [{ githubRepositoryId: "72", consents: [
+      { purpose: "PRIVATE_COLLECTION", decision: "GRANTED", policyVersion: "test-v1" },
+      { purpose: "EXTERNAL_AI", decision: "DENIED", policyVersion: "test-v1" },
+    ] }] };
+    assert.equal((await post("/api/repoq/projects", privateInput, "private-off")).status, 400);
+    const putConsent = input => fetch(webOrigin + "/api/github/repositories/72/consents", { method: "PUT", headers: {
+      Cookie: cookie, Origin: webOrigin, "x-devfield-csrf": token, "Content-Type": "application/json" }, body: JSON.stringify(input) });
+    assert.equal((await putConsent({ consents: [privateInput.repositories[0].consents[0], { ...privateInput.repositories[0].consents[1], decision: "GRANTED" }] })).status, 400);
+    assert.equal((await putConsent({ consents: [{ ...privateInput.repositories[0].consents[0], decision: "REVOKED" }, privateInput.repositories[0].consents[1]] })).status, 202);
     assert.equal((await post("/api/repoq/projects", create, "create-key", { Origin: "https://evil.example" })).status, 403);
     assert.equal((await post("/api/repoq/projects", { name: " ", repositories: create.repositories }, "bad-name")).status, 400);
     assert.equal((await post("/api/repoq/projects", { name: "X", repositories: [] }, "bad-count")).status, 400);

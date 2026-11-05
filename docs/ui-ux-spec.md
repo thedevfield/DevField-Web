@@ -561,3 +561,11 @@ OAuth LOGIN·SIGNUP·LINK·REAUTH에서 Auth는 Google·GitHub의 공식 계정 
 - GitHub App에 등록된 `/api/github/connections/callback`과 `/api/github/connections/setup` 경로는 유지한다. 완료 후 `/app/repoq/settings/github?result=...`로 돌아와 결과를 표시하고 Query를 제거한다. 기존 state·PKCE·iss·HttpOnly Attempt Cookie·세션 결합 검증을 유지한다.
 - Project가 확인한 Repository ID, 전체 이름, Public/Private를 30개씩 페이지로 표시한다. Private 등록은 후속 기능으로 안내한다. 로딩, 장애, 취소, 만료, 승인 대기, 거부를 구분한다.
 - 320·390·768·1440px 반응형, 키보드 포커스, 상태 알림, reduced motion을 확인한다. 실제 Auth·Project·GitHub 브라우저 E2E는 서비스가 기동된 경우에만 별도로 검증한다.
+
+### RepoQ Private Repository 확장 (Web 기본 비활성)
+
+- 서버 환경변수 `WEB_PRIVATE_REGISTRATION_ENABLED`가 정확히 `true`인 경우에만 Private 선택 UI와 P-01/P-07 Private 입력을 연다. 누락·다른 값은 비활성이다. Backend의 `PROJECT_PRIVATE_REGISTRATION_ENABLED`도 별도로 켜져야 하며, 이번 작업은 운영 설정을 변경하지 않는다. Public URL 등록은 GitHub App 없이 계속 가능하다.
+- 생성·추가 화면은 접근 가능한 GitHub App Private Repository의 안정 ID를 선택하고 `PRIVATE_COLLECTION`(수집·분석)과 `EXTERNAL_AI`(Private 코드를 외부 AI 모델로 처리)를 각각 명시적으로 결정한다. 두 목적의 현재 정책 버전은 Project Service의 GET 동의 응답에서 받는다. 미결정·조회 실패·정책 버전 미설정이면 Private 제출을 막는다. 과거 버전의 허용을 현재 버전의 허용으로 표시하지 않는다. Public/Private 혼합은 전체 1~20개로 제한한다.
+- GitHub App 관리 화면은 Repository별 최신 결정·기록 버전·현재 버전을 표시한다. P-12는 두 목적의 결정을 함께 제출한다. 기존 허용을 거부로 우회하지 않고 `REVOKED`로 철회하며, `200 UPDATED`와 `202 BLOCKED`를 구분한다. 철회된 목적의 임의 재승인은 제공하지 않는다. 등록 Gate가 꺼져도 저장된 동의 조회·기존 동의 철회·P-13 연결 해제는 가능하다. 정책 버전이 Backend에 미설정돼 P-12 자체가 거부되는 경우에는 제출 불가와 설정 의존성을 표시한다.
+- P-13 연결 해제 전 확인 Dialog에서 RepoQ Private 접근 차단, GitHub 원본 보존, DevField GitHub 소셜 로그인과의 분리를 설명한다. `202` 후 상태를 다시 조회하며 `DISCONNECTED`를 표시한다. 차단된 Private 상세는 서버가 가린 이름·ID를 복원하지 않고 “접근 권한 없음”으로 표시한다. Public 항목은 계속 표시한다.
+- 실제 GitHub 권한 변경·철회 Webhook E2E, TokenCipher 키 교체, 최종 정책 문구 승인 전에는 Private 기능을 운영에 공개하지 않는다. Mock Backend BFF 검증과 실제 브라우저·GitHub E2E 결과는 별도로 기록한다.

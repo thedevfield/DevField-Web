@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { GitHubMark } from "./GitHubMark";
 import { useCallback, useEffect, useState } from "react";
+import { useRef } from "react";
+import { ConsentManager } from "./ConsentManager";
+import { csrfToken, responseData } from "./project-ui";
 import styles from "./page.module.css";
 
-type Status = { userAuthorization: "NOT_AUTHORIZED" | "AUTHORIZED" | "REAUTHORIZE"; installation: "NOT_INSTALLED" | "PENDING_APPROVAL" | "INSTALLED" };
+type Status = { userAuthorization: "NOT_AUTHORIZED" | "AUTHORIZED" | "REAUTHORIZE" | "DISCONNECTED"; installation: "NOT_INSTALLED" | "PENDING_APPROVAL" | "INSTALLED"; connectionId: string | null };
 type Listing = { status: string; repositories: { id: number; fullName: string; name: string; private: boolean }[]; page: number; hasNext: boolean };
 const messages: Record<string, string> = {
   authorized: "GitHub 사용자 승인이 완료되었습니다. App 설치를 이어서 진행해 주세요.",
@@ -13,16 +16,20 @@ const messages: Record<string, string> = {
   cancelled: "GitHub 사용자 승인이 취소되었습니다.", expired: "연결 시도가 만료되었거나 이미 처리되었습니다. 다시 시작해 주세요.",
   denied: "설치에 접근할 수 없습니다. GitHub 권한을 확인해 주세요.", conflict: "이 GitHub 계정은 현재 연결에 사용할 수 없습니다.",
   failed: "연결을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  disconnected: "RepoQ GitHub App 연결이 해제되었습니다. Private Repository 접근이 차단됩니다.",
 };
 
-export function RepoQConnection() {
+export function RepoQConnection({ privateEnabled }: { privateEnabled: boolean }) {
   const [status, setStatus] = useState<Status>();
   const [listing, setListing] = useState<Listing>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [knownId, setKnownId] = useState("");
+  const dialog = useRef<HTMLDialogElement>(null);
   const load = useCallback(async (page = 1) => {
-    setError("");
+    setError(""); setListing(undefined);
     try {
       const [a, b] = await Promise.all([
         fetch("/api/github/connections", { cache: "no-store" }),
@@ -30,7 +37,7 @@ export function RepoQConnection() {
       ]);
       if (!a.ok || !b.ok) throw new Error();
       setStatus(await a.json()); setListing(await b.json());
-    } catch { setError("연결 상태를 불러오지 못했습니다. 다시 시도해 주세요."); }
+    } catch { setStatus(undefined); setListing(undefined); setSelectedId(""); setError("연결 상태를 불러오지 못했습니다. 다시 시도해 주세요."); }
   }, []);
   useEffect(() => { const params = new URLSearchParams(window.location.search); setResult(params.get("result") ?? ""); window.history.replaceState(null, "", "/app/repoq/settings/github"); void load(); }, [load]);
   async function start() {
@@ -46,7 +53,19 @@ export function RepoQConnection() {
       window.location.assign(data.url);
     } catch { setError("연결을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요."); setBusy(false); }
   }
-  const userText = status?.userAuthorization === "AUTHORIZED" ? "사용자 승인 완료" : status?.userAuthorization === "REAUTHORIZE" ? "사용자 재승인 필요" : "사용자 승인 필요";
+  async function disconnect() {
+    if (!status?.connectionId) return;
+    setBusy(true); setError("");
+    try {
+      const response = await fetch(`/api/github/connections/${status.connectionId}`, { method: "DELETE", cache: "no-store",
+        headers: { "x-devfield-csrf": await csrfToken() } });
+      if (response.status === 401) { window.location.assign("/login"); return; }
+      await responseData(response);
+      dialog.current?.close(); setSelectedId(""); setResult("disconnected"); await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "GitHub App 연결을 해제하지 못했습니다."); }
+    finally { setBusy(false); }
+  }
+  const userText = status?.userAuthorization === "AUTHORIZED" ? "사용자 승인 완료" : status?.userAuthorization === "REAUTHORIZE" ? "사용자 재승인 필요" : status?.userAuthorization === "DISCONNECTED" ? "연결 해제됨" : "사용자 승인 필요";
   const installText = status?.installation === "INSTALLED" ? "설치 확인 완료" : status?.installation === "PENDING_APPROVAL" ? "관리자 승인 대기" : "App 설치 필요";
   return <main className={styles.main} id="main">
     <nav className={styles.breadcrumbs} aria-label="현재 위치"><Link href="/app/repoq">RepoQ</Link><span aria-hidden="true">/</span><span aria-current="page">GitHub App 연결 관리</span></nav>
@@ -62,12 +81,29 @@ export function RepoQConnection() {
         <div><span>사용자 승인</span><strong>{userText}</strong></div><div><span>App 설치</span><strong>{installText}</strong></div>
       </div>}
       {status?.installation === "PENDING_APPROVAL" && <p className={styles.hint}>조직 관리자의 승인이 필요합니다. 승인 후 새 설치 시도를 시작해 주세요.</p>}
+      {status?.connectionId && status.userAuthorization !== "DISCONNECTED" && <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => dialog.current?.showModal()}>GitHub App 연결 해제</button>}
     </section>
     <section className={styles.card} aria-labelledby="repo-title"><div className={styles.heading}><div><p className={styles.eyebrow}>02 / REPOSITORIES</p><h2 id="repo-title">접근 가능한 Repository</h2></div></div>
       {!listing ? <p role="status">{error ? "Repository를 확인할 수 없습니다." : "Repository를 불러오는 중입니다…"}</p> : listing.status !== "CONNECTED" ?
         <p className={styles.hint}>{listing.status === "INSTALLATION_PENDING" ? "관리자 승인을 기다리고 있습니다." : listing.status === "INSTALLATION_REQUIRED" ? "App 설치가 필요합니다." : "GitHub 사용자 승인이 필요합니다."}</p> :
-        <>{listing.repositories.length ? <ul className={styles.repos}>{listing.repositories.map(repo => <li key={repo.id}><GitHubMark size={16} /><span><strong>{repo.fullName}</strong><small>ID {repo.id}</small></span><span className={styles.visibility}>{repo.private ? "Private · 등록 준비 중" : "Public"}</span></li>)}</ul> : <p className={styles.hint}>현재 접근 가능한 Repository가 없습니다.</p>}
+        <>{listing.repositories.length ? <ul className={styles.repos}>{listing.repositories.map(repo => <li key={repo.id}><GitHubMark size={16} /><span><strong>{repo.fullName}</strong><small>ID {repo.id}</small></span><span className={styles.visibility}>{repo.private ? privateEnabled ? "Private" : "Private · 등록 준비 중" : "Public"}</span>{repo.private && <button type="button" onClick={() => setSelectedId(String(repo.id))}>동의 관리</button>}</li>)}</ul> : <p className={styles.hint}>현재 접근 가능한 Repository가 없습니다.</p>}
           <div className={styles.pagination}><button disabled={listing.page <= 1} onClick={() => void load(listing.page - 1)}>이전</button><span>{listing.page} 페이지</span><button disabled={!listing.hasNext} onClick={() => void load(listing.page + 1)}>다음</button></div></>}
     </section>
+    <section className={styles.card} aria-labelledby="consent-history-title">
+      <h2 id="consent-history-title">저장된 Private 동의 조회</h2>
+      <p className={styles.hint}>GitHub 접근이 없더라도 본인이 이전에 결정한 Repository ID의 동의 기록을 확인할 수 있습니다.</p>
+      <form onSubmit={event => { event.preventDefault(); if (/^[1-9][0-9]{0,18}$/.test(knownId)) setSelectedId(knownId); }}>
+        <label htmlFor="known-repository-id">GitHub Repository ID</label>
+        <input id="known-repository-id" inputMode="numeric" pattern="[1-9][0-9]{0,18}" value={knownId} onChange={event => setKnownId(event.target.value)} />
+        <button type="submit">동의 조회</button>
+      </form>
+    </section>
+    {selectedId && <section aria-label="Private Repository 동의 관리"><ConsentManager key={selectedId} repositoryId={selectedId} privateEnabled={privateEnabled} /></section>}
+    <dialog ref={dialog} className={styles.dialog} aria-labelledby="disconnect-title" aria-describedby="disconnect-description">
+      <h2 id="disconnect-title">GitHub App 연결을 해제할까요?</h2>
+      <p id="disconnect-description">RepoQ의 GitHub App 접근이 차단되고 연결된 Private Repository 사용에 영향이 있습니다. GitHub 원본 Repository는 삭제되지 않습니다. DevField의 GitHub 소셜 로그인은 별개입니다.</p>
+      <button type="button" disabled={busy} onClick={() => void disconnect()}>{busy ? "해제 중…" : "연결 해제"}</button>
+      <button type="button" disabled={busy} onClick={() => dialog.current?.close()}>취소</button>
+    </dialog>
   </main>;
 }

@@ -7,10 +7,11 @@ import { setTimeout as delay } from "node:timers/promises";
 const listen = server => new Promise(resolve => server.listen(0, "127.0.0.1", () => resolve(server.address().port)));
 const close = server => new Promise(resolve => server.close(resolve));
 const proof = "p".repeat(43);
+const connectionId = "11111111-1111-4111-8111-111111111111";
 const body = request => new Promise(resolve => { let raw = ""; request.on("data", chunk => raw += chunk); request.on("end", () => resolve(raw ? JSON.parse(raw) : {})); });
 
 test("GitHub App BFF binds the attempt to the session and validates Project responses", { timeout: 120000 }, async () => {
-  let action = "AUTHORIZE_USER", badUrl = false, expired = false, shortExpiry = false, pending = false, badRepo = false, projectDown = false, authDown = false, callbackConsumed = false, callbackFailure = null;
+  let action = "AUTHORIZE_USER", badUrl = false, expired = false, shortExpiry = false, pending = false, badRepo = false, projectDown = false, authDown = false, callbackConsumed = false, callbackFailure = null, disconnected = false, consentVersion = "test-v1", consentDecision = null, badConsent = false, badDisconnect = false, badRevocation = false, noConnection = false, badConnection = false;
   const calls = [];
   let webOrigin;
   const auth = createServer((req, res) => {
@@ -33,13 +34,22 @@ test("GitHub App BFF binds the attempt to the session and validates Project resp
       if (callbackFailure) return res.writeHead(callbackFailure.status).end(JSON.stringify({ code: callbackFailure.code }));
       if (callbackConsumed) return res.writeHead(403).end(JSON.stringify({ code: "github_attempt_invalid" }));
       callbackConsumed = true;
-      return res.end(JSON.stringify({ userAuthorization: "AUTHORIZED", installation: "NOT_INSTALLED" }));
+      return res.end(JSON.stringify({ userAuthorization: "AUTHORIZED", installation: "NOT_INSTALLED", connectionId }));
     }
     if (req.url === "/api/github/connections/setup/complete") {
       if (input.installationId !== 51) return res.writeHead(403).end(JSON.stringify({ code: "github_installation_unavailable" }));
-      return res.end(JSON.stringify({ userAuthorization: "AUTHORIZED", installation: pending ? "PENDING_APPROVAL" : "INSTALLED" }));
+      return res.end(JSON.stringify({ userAuthorization: "AUTHORIZED", installation: pending ? "PENDING_APPROVAL" : "INSTALLED", connectionId }));
     }
-    if (req.url === "/api/github/connections") return res.end(JSON.stringify({ userAuthorization: "AUTHORIZED", installation: pending ? "PENDING_APPROVAL" : "INSTALLED", token: "must-not-leak" }));
+    if (req.url === "/api/github/connections") return res.end(JSON.stringify({ userAuthorization: disconnected ? "DISCONNECTED" : "AUTHORIZED", installation: disconnected ? "NOT_INSTALLED" : pending ? "PENDING_APPROVAL" : "INSTALLED", connectionId: badConnection ? "invalid" : noConnection ? null : connectionId, token: "must-not-leak" }));
+    if (req.url === `/api/github/connections/${connectionId}` && req.method === "DELETE") { if (badDisconnect) return res.writeHead(202).end(JSON.stringify({ connectionId, status: "WRONG" })); disconnected = true; return res.writeHead(202).end(JSON.stringify({ connectionId, status: "BLOCKED", token: "must-not-leak" })); }
+    if (req.url === "/api/github/repositories/72/consents") {
+      if (req.method === "GET") return res.end(JSON.stringify(badConsent ? { githubRepositoryId: "72", currentPolicyVersion: "test-v1", consentSubmissionAvailable: true, consents: [] } : { githubRepositoryId: "72", currentPolicyVersion: consentVersion, consentSubmissionAvailable: !!consentVersion, consents: [
+        { purpose: "PRIVATE_COLLECTION", decision: consentDecision, policyVersion: consentDecision ? "test-v1" : null },
+        { purpose: "EXTERNAL_AI", decision: consentDecision === "GRANTED" ? "DENIED" : null, policyVersion: consentDecision ? "test-v1" : null },
+      ], token: "must-not-leak" }));
+      if (req.method === "PUT") { if (badRevocation) return res.writeHead(202).end(JSON.stringify({ revocationId: null, status: "BLOCKED" })); consentDecision = input.consents[0].decision; const revoked = consentDecision === "REVOKED";
+        return res.writeHead(revoked ? 202 : 200).end(JSON.stringify({ revocationId: revoked ? connectionId : null, status: revoked ? "BLOCKED" : "UPDATED" })); }
+    }
     if (req.url?.startsWith("/api/github/repositories")) return res.end(JSON.stringify({ status: pending ? "INSTALLATION_PENDING" : "CONNECTED", page: 1, hasNext: false, repositories: pending ? [] : [{ id: 72, fullName: "org/repo", name: "repo", isPrivate: true, ownerUserId: badRepo ? "bob" : undefined }] }));
     res.writeHead(404).end(JSON.stringify({ code: "not_found" }));
   });
@@ -47,7 +57,7 @@ test("GitHub App BFF binds the attempt to the session and validates Project resp
   const probe = createServer(), webPort = await listen(probe); await close(probe);
   webOrigin = `http://127.0.0.1:${webPort}`;
   const next = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "-p", String(webPort), "-H", "127.0.0.1"], { cwd: process.cwd(),
-    env: { ...process.env, NODE_ENV: "development", WEB_PUBLIC_ORIGIN: webOrigin, AUTH_INTERNAL_URL: `http://127.0.0.1:${authPort}`, PROJECT_INTERNAL_URL: `http://127.0.0.1:${projectPort}`, WEB_CSRF_SECRET: "isolated-test-secret-at-least-32-characters", DEVFIELD_BFF_SERVICE_KEY: "test-key" }, stdio: ["ignore", "ignore", "pipe"] });
+    env: { ...process.env, NODE_ENV: "development", WEB_PUBLIC_ORIGIN: webOrigin, AUTH_INTERNAL_URL: `http://127.0.0.1:${authPort}`, PROJECT_INTERNAL_URL: `http://127.0.0.1:${projectPort}`, WEB_CSRF_SECRET: "isolated-test-secret-at-least-32-characters", DEVFIELD_BFF_SERVICE_KEY: "test-key", WEB_PRIVATE_REGISTRATION_ENABLED: "true" }, stdio: ["ignore", "ignore", "pipe"] });
   let nextErrors = ""; next.stderr.on("data", data => nextErrors += data);
   try {
     let ready = false;
@@ -124,6 +134,41 @@ test("GitHub App BFF binds the attempt to the session and validates Project resp
     assert.deepEqual(repos.repositories, [{ id: 72, fullName: "org/repo", name: "repo", private: true }]);
     badRepo = true; assert.doesNotMatch(JSON.stringify(await (await get("/api/github/repositories?page=1", "DF_WEB_SESSION_DEV=alice")).json()), /ownerUserId|bob/);
     assert.doesNotMatch(JSON.stringify(await (await get("/api/github/connections", "DF_WEB_SESSION_DEV=alice")).json()), /must-not-leak|token/);
+    const connection = await (await get("/api/github/connections", "DF_WEB_SESSION_DEV=alice")).json();
+    assert.equal(connection.connectionId, connectionId);
+    noConnection = true;
+    assert.equal((await (await get("/api/github/connections", "DF_WEB_SESSION_DEV=alice")).json()).connectionId, null);
+    noConnection = false;
+    badConnection = true; assert.equal((await get("/api/github/connections", "DF_WEB_SESSION_DEV=alice")).status, 503); badConnection = false;
+    assert.equal((await get("/api/github/repositories/abc/consents", "DF_WEB_SESSION_DEV=alice")).status, 400);
+    const consentPath = "/api/github/repositories/72/consents";
+    const initial = await (await get(consentPath, "DF_WEB_SESSION_DEV=alice")).json();
+    assert.deepEqual(initial.consents.map(x => x.decision), [null, null]);
+    assert.doesNotMatch(JSON.stringify(initial), /must-not-leak/);
+    badConsent = true; assert.equal((await get(consentPath, "DF_WEB_SESSION_DEV=alice")).status, 503); badConsent = false;
+    const put = (path, input, headers = {}) => fetch(webOrigin + path, { method: "PUT", headers: { Cookie: baseCookie, Origin: webOrigin,
+      "x-devfield-csrf": token, "Content-Type": "application/json", ...headers }, body: JSON.stringify(input) });
+    const decisions = { consents: [{ purpose: "PRIVATE_COLLECTION", decision: "GRANTED", policyVersion: "test-v1" }, { purpose: "EXTERNAL_AI", decision: "DENIED", policyVersion: "test-v1" }] };
+    assert.equal((await put(consentPath, decisions, { Origin: "https://evil.example" })).status, 403);
+    assert.equal((await put(consentPath, decisions, { "x-devfield-csrf": "bad" })).status, 403);
+    assert.equal((await put(consentPath, { consents: [decisions.consents[0], decisions.consents[0]] })).status, 400);
+    assert.equal((await put(consentPath, decisions)).status, 200);
+    badRevocation = true; assert.equal((await put(consentPath, decisions)).status, 503); badRevocation = false;
+    assert.equal((await get(consentPath, "DF_WEB_SESSION_DEV=alice")).status, 200);
+    consentVersion = null;
+    assert.equal((await (await get(consentPath, "DF_WEB_SESSION_DEV=alice")).json()).consentSubmissionAvailable, false);
+    assert.equal((await put(consentPath, decisions)).status, 409);
+    consentVersion = "test-v2";
+    assert.equal((await (await get(consentPath, "DF_WEB_SESSION_DEV=alice")).json()).consents[0].policyVersion, "test-v1");
+    assert.equal((await put(consentPath, { consents: [{ ...decisions.consents[0], decision: "REVOKED" }, decisions.consents[1]] })).status, 409);
+    assert.equal((await put(consentPath, { consents: [{ ...decisions.consents[0], decision: "REVOKED", policyVersion: "test-v2" }, { ...decisions.consents[1], policyVersion: "test-v2" }] })).status, 202);
+    const disconnect = (path, headers = {}) => fetch(webOrigin + path, { method: "DELETE", headers: { Cookie: baseCookie, Origin: webOrigin, "x-devfield-csrf": token, ...headers } });
+    assert.equal((await disconnect(`/api/github/connections/${connectionId}`, { Origin: "https://evil.example" })).status, 403);
+    assert.equal((await disconnect("/api/github/connections/not-a-uuid")).status, 400);
+    badDisconnect = true; assert.equal((await disconnect(`/api/github/connections/${connectionId}`)).status, 503); badDisconnect = false;
+    assert.equal((await disconnect(`/api/github/connections/${connectionId}`)).status, 202);
+    assert.equal((await disconnect(`/api/github/connections/${connectionId}`)).status, 202);
+    assert.equal((await (await get("/api/github/connections", "DF_WEB_SESSION_DEV=alice")).json()).userAuthorization, "DISCONNECTED");
     projectDown = true; assert.equal((await get("/api/github/connections", "DF_WEB_SESSION_DEV=alice")).status, 503);
     projectDown = false; authDown = true; assert.equal((await get("/api/github/connections", "DF_WEB_SESSION_DEV=alice")).status, 503);
     assert.ok(calls.every(x => !x.path.includes("code=") && !x.path.includes("proof=")));

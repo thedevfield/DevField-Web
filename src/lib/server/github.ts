@@ -5,8 +5,12 @@ import { authPost, BffError, digest, origin, sessionHandle } from "./auth";
 
 const cookieName = process.env.NODE_ENV === "production" ? "__Host-DF_GITHUB_ATTEMPT" : "DF_GITHUB_ATTEMPT_DEV";
 const proofPattern = /^[A-Za-z0-9_-]{43}$/;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const repositoryId = /^[1-9][0-9]{0,18}$/;
 type Kind = "AUTHORIZE_USER" | "INSTALL_APP";
-type Status = { userAuthorization: "NOT_AUTHORIZED" | "AUTHORIZED" | "REAUTHORIZE"; installation: "NOT_INSTALLED" | "PENDING_APPROVAL" | "INSTALLED" };
+type Status = { userAuthorization: "NOT_AUTHORIZED" | "AUTHORIZED" | "REAUTHORIZE" | "DISCONNECTED"; installation: "NOT_INSTALLED" | "PENDING_APPROVAL" | "INSTALLED"; connectionId: string | null };
+export function safeRepositoryId(value: string) { if (!repositoryId.test(value)) throw new BffError(400, "invalid_request"); return value; }
+export function safeConnectionId(value: string) { if (!uuid.test(value)) throw new BffError(400, "invalid_request"); return value.toLowerCase(); }
 
 function secret() {
   const value = process.env.WEB_CSRF_SECRET;
@@ -26,11 +30,15 @@ export async function jwt() {
   return { handle, token: result.data.accessToken };
 }
 
-export async function project(path: string, token: string, method: "GET" | "POST", body?: object) {
+export async function project(path: string, token: string, method: "GET" | "POST" | "PUT" | "DELETE", body?: object, expected: 200 | 202 | "200_OR_202" = 200) {
   const configured = process.env.PROJECT_INTERNAL_URL;
   let target: URL;
   try {
-    if (!configured || !path.startsWith("/api/github/") || path.includes("#")) throw new Error();
+    const allowed = method === "GET" && (path === "/api/github/connections" || /^\/api\/github\/repositories\?page=(?:[1-9][0-9]{0,3}|10000)&perPage=30$/.test(path) || /^\/api\/github\/repositories\/[1-9][0-9]{0,18}\/consents$/.test(path)) ||
+      method === "POST" && ["/api/github/connections/start", "/api/github/connections/callback/complete", "/api/github/connections/setup/complete"].includes(path) ||
+      method === "PUT" && /^\/api\/github\/repositories\/[1-9][0-9]{0,18}\/consents$/.test(path) ||
+      method === "DELETE" && /^\/api\/github\/connections\/[0-9a-f-]{36}$/i.test(path);
+    if (!configured || !allowed) throw new Error();
     const base = new URL(configured);
     if (!/^https?:$/.test(base.protocol) || base.username || base.password || base.search || base.hash || base.pathname !== "/") throw new Error();
     target = new URL(path, base);
@@ -55,18 +63,71 @@ export async function project(path: string, token: string, method: "GET" | "POST
   const record = data as Record<string, unknown>;
   if (!response.ok) {
     const code = record.code;
-    if (typeof code !== "string" || !/^github_[a-z_]{1,45}$/.test(code)) return unavailable();
-    if ([400, 401, 403, 409, 410, 429, 503].includes(response.status)) throw new BffError(response.status, code);
-    return unavailable();
+    const allowed: Record<string, number[]> = {
+      invalid_request: [400], invalid_token: [401], invalid_session: [401], account_unavailable: [403],
+      repository_not_found: [404], connection_not_found: [404], consent_not_owned: [403],
+      revocation_required: [409], revocation_in_progress: [409],
+      github_attempt_invalid: [403], github_account_conflict: [409], github_identity_mismatch: [403],
+      github_access_denied: [403], github_installation_unavailable: [403], github_reauthorization_required: [401],
+      github_rate_limited: [503, 429], github_unavailable: [503], github_pagination_limit: [503],
+      github_configuration_unavailable: [503], github_credential_unavailable: [503], github_key_version_unavailable: [503],
+    };
+    if (typeof code !== "string" || !allowed[code]?.includes(response.status)) return unavailable();
+    throw new BffError(response.status, code);
   }
-  if (response.status !== 200) return unavailable();
+  if (response.status !== expected && !(expected === "200_OR_202" && [200, 202].includes(response.status))) return unavailable();
+  if (expected === "200_OR_202") return { ...record, __httpStatus: response.status };
   return record;
 }
 
 export function statusOf(value: Record<string, unknown>): Status {
-  if (!["NOT_AUTHORIZED", "AUTHORIZED", "REAUTHORIZE"].includes(String(value.userAuthorization)) ||
-      !["NOT_INSTALLED", "PENDING_APPROVAL", "INSTALLED"].includes(String(value.installation))) return unavailable();
-  return { userAuthorization: value.userAuthorization, installation: value.installation } as Status;
+  if (!["NOT_AUTHORIZED", "AUTHORIZED", "REAUTHORIZE", "DISCONNECTED"].includes(String(value.userAuthorization)) ||
+      !["NOT_INSTALLED", "PENDING_APPROVAL", "INSTALLED"].includes(String(value.installation)) ||
+      !(value.connectionId === null || typeof value.connectionId === "string" && uuid.test(value.connectionId))) return unavailable();
+  return { userAuthorization: value.userAuthorization, installation: value.installation, connectionId: value.connectionId } as Status;
+}
+
+export function consentStatusOf(value: Record<string, unknown>, id: string) {
+  if (value.githubRepositoryId !== id || !(value.currentPolicyVersion === null || typeof value.currentPolicyVersion === "string" && value.currentPolicyVersion.length > 0 && value.currentPolicyVersion.length <= 100) ||
+      typeof value.consentSubmissionAvailable !== "boolean" || value.consentSubmissionAvailable !== (value.currentPolicyVersion !== null) ||
+      !Array.isArray(value.consents) || value.consents.length !== 2) return unavailable();
+  const seen = new Set<string>();
+  const consents = value.consents.map(raw => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return unavailable();
+    const c = raw as Record<string, unknown>;
+    if (!["PRIVATE_COLLECTION", "EXTERNAL_AI"].includes(String(c.purpose)) || seen.has(String(c.purpose)) ||
+        !(c.decision === null && c.policyVersion === null || ["GRANTED", "DENIED", "REVOKED"].includes(String(c.decision)) && typeof c.policyVersion === "string" && !!c.policyVersion)) return unavailable();
+    seen.add(c.purpose as string);
+    return { purpose: c.purpose as "PRIVATE_COLLECTION" | "EXTERNAL_AI", decision: c.decision as "GRANTED" | "DENIED" | "REVOKED" | null, policyVersion: c.policyVersion as string | null };
+  });
+  if (seen.size !== 2) return unavailable();
+  return { githubRepositoryId: id, currentPolicyVersion: value.currentPolicyVersion as string | null, consentSubmissionAvailable: value.consentSubmissionAvailable, consents };
+}
+
+export function consentInput(value: Record<string, unknown>) {
+  if (Object.keys(value).some(k => k !== "consents") || !Array.isArray(value.consents) || value.consents.length !== 2) throw new BffError(400, "invalid_request");
+  const seen = new Set<string>();
+  const consents = value.consents.map(raw => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new BffError(400, "invalid_request");
+    const c = raw as Record<string, unknown>;
+    if (Object.keys(c).some(k => !["purpose", "decision", "policyVersion"].includes(k)) ||
+        !["PRIVATE_COLLECTION", "EXTERNAL_AI"].includes(String(c.purpose)) || seen.has(String(c.purpose)) ||
+        !["GRANTED", "DENIED", "REVOKED"].includes(String(c.decision)) || typeof c.policyVersion !== "string" || !c.policyVersion || c.policyVersion.length > 100)
+      throw new BffError(400, "invalid_request");
+    seen.add(c.purpose as string);
+    return { purpose: c.purpose, decision: c.decision, policyVersion: c.policyVersion };
+  });
+  return { consents };
+}
+
+export function revocationOf(value: Record<string, unknown>, status: 200 | 202) {
+  if (status === 200 && (value.revocationId !== null || value.status !== "UPDATED") ||
+      status === 202 && (typeof value.revocationId !== "string" || !uuid.test(value.revocationId) || value.status !== "BLOCKED")) return unavailable();
+  return { revocationId: value.revocationId as string | null, status: value.status as string };
+}
+export function disconnectionOf(value: Record<string, unknown>, id: string) {
+  if (value.connectionId !== id || value.status !== "BLOCKED") return unavailable();
+  return { connectionId: id, status: "BLOCKED" };
 }
 
 export function listingOf(value: Record<string, unknown>) {

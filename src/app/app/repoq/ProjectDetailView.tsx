@@ -5,15 +5,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfToken, messageFor, responseData, statusText, urlsOf, type Member, type ProjectDetail } from "./project-ui";
 import { GitHubMark } from "./GitHubMark";
 import { RepositoryFields } from "./RepositoryFields";
+import { PrivateRepositoryPicker, privateEntries, type Choice } from "./PrivateRepositoryPicker";
 import styles from "./workspace.module.css";
 
-export function ProjectDetailView({ id }: { id: string }) {
+export function ProjectDetailView({ id, privateEnabled }: { id: string; privateEnabled: boolean }) {
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [rows, setRows] = useState([""]);
+  const [privateChoices, setPrivateChoices] = useState<Choice[]>([]);
   const [adding, setAdding] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
   const pending = useRef<{ body: string; key: string } | null>(null);
@@ -35,12 +37,12 @@ export function ProjectDetailView({ id }: { id: string }) {
     return () => { document.removeEventListener("keydown", onKey); previous?.focus(); };
   }, [removeTarget, busy]);
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setProject(null);
     try {
       const response = await fetch(`/api/repoq/projects/${id}`, { cache: "no-store" });
       if (response.status === 401) { window.location.assign("/login"); return; }
       setProject(await responseData(response));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : messageFor("project_unavailable")); }
+    } catch (cause) { setProject(null); setError(cause instanceof Error ? cause.message : messageFor("project_unavailable")); }
     finally { setLoading(false); }
   }, [id]);
   useEffect(() => { void load(); }, [load]);
@@ -48,7 +50,12 @@ export function ProjectDetailView({ id }: { id: string }) {
     event.preventDefault(); if (busy) return;
     setError(""); setNotice("");
     let body: string;
-    try { body = JSON.stringify({ repositories: urlsOf(rows) }); }
+    try {
+      const publicRows = rows.filter(row => row.trim());
+      const repositories = [...(publicRows.length ? urlsOf(publicRows) : []), ...privateEntries(privateChoices)];
+      if (!repositories.length || repositories.length > 20) throw new Error("Repository를 1~20개 선택해 주세요.");
+      body = JSON.stringify({ repositories });
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Repository URL을 확인해 주세요."); return; }
     if (pending.current?.body !== body) pending.current = { body, key: crypto.randomUUID() };
     setBusy(true);
@@ -60,7 +67,7 @@ export function ProjectDetailView({ id }: { id: string }) {
       const added = await responseData(response);
       setProject(current => current ? { ...current, repositories: added.repositories, membershipVersion: added.membershipVersion,
         analysisStatus: added.analysisStatus, latestReadySnapshot: null, canInterview: false } : current);
-      pending.current = null; setRows([""]); setAdding(false); setNotice("Repository를 추가했습니다. 분석이 대기 중입니다.");
+      pending.current = null; setRows([""]); setPrivateChoices([]); setAdding(false); setNotice("Repository를 추가했습니다. 분석이 대기 중입니다.");
       await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Repository를 추가하지 못했습니다. 다시 시도해 주세요."); }
     finally { setBusy(false); }
@@ -93,14 +100,15 @@ export function ProjectDetailView({ id }: { id: string }) {
       <section className={styles.card} aria-labelledby="repo-title"><div className={styles.heroRow}><div><div className={styles.kicker}>REPOSITORIES</div><h2 id="repo-title">연결된 Repository <span className={styles.countLabel}>{project.repositories.length}개</span></h2></div>
         <button type="button" className={styles.primary} disabled={busy || project.analysisStatus === "RUNNING"} onClick={() => setAdding(value => !value)}><Plus size={17} /> Repository 추가</button></div>
         <ul className={styles.memberList}>{project.repositories.map(member => <li key={member.id}>
-          <GitHubMark /><div className={styles.memberText}><strong>{member.fullName}</strong>
-            <span>{member.visibility === "PUBLIC" ? "Public" : "Private"} · {statusText[member.analysisStatus] ?? member.analysisStatus}</span></div>
-          <button type="button" className={styles.iconButton} aria-label={`${member.fullName} 연결 제거`} title="연결 제거"
+          <GitHubMark /><div className={styles.memberText}><strong>{member.fullName ?? "접근 권한 없음"}</strong>
+            <span>{member.visibility === "PUBLIC" ? "Public" : "Private"} · {member.accessStatus === "BLOCKED" ? "접근 차단됨" : statusText[member.analysisStatus] ?? member.analysisStatus}</span></div>
+          <button type="button" className={styles.iconButton} aria-label={`${member.fullName ?? "차단된 Repository"} 연결 제거`} title="연결 제거"
             disabled={busy || project.repositories.length <= 1 || project.analysisStatus === "RUNNING"} onClick={() => setRemoveTarget(member)}><X size={19} aria-hidden="true" /></button>
         </li>)}</ul>
         {project.repositories.length <= 1 && <p className={styles.help}>마지막 Repository는 제거할 수 없습니다. 프로젝트 삭제 기능은 아직 준비 중입니다.</p>}
         {project.analysisStatus === "RUNNING" && <p className={styles.help}>분석 중에는 Repository를 추가하거나 제거할 수 없습니다.</p>}
-        {adding && <form className={styles.inlineForm} onSubmit={event => void add(event)}><RepositoryFields rows={rows} onChange={setRows} disabled={busy} />
+        {adding && <form className={styles.inlineForm} onSubmit={event => void add(event)}><RepositoryFields rows={rows} onChange={setRows} disabled={busy} allowEmpty={privateChoices.length > 0} />
+          <PrivateRepositoryPicker enabled={privateEnabled} disabled={busy} choices={privateChoices} onChange={setPrivateChoices} />
           <div className={styles.actions}><button type="submit" className={styles.primary} disabled={busy}>{busy ? "추가 중…" : "Repository 추가"}</button>
             <button type="button" className={styles.secondary} disabled={busy} onClick={() => setAdding(false)}>취소</button></div></form>}
       </section></div><aside className={styles.detailAside} aria-label="프로젝트 상태 및 정보">
@@ -121,7 +129,7 @@ export function ProjectDetailView({ id }: { id: string }) {
           <button type="button" className={styles.secondary} disabled>모의면접 준비 중</button></div>
       </section><Link className={styles.secondary} href="/app/repoq">← 프로젝트 목록</Link></aside></div></>}
     {removeTarget && <div className={styles.dialogBackdrop}><div ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="remove-title" aria-describedby="remove-description">
-      <h2 id="remove-title">Repository 연결을 제거할까요?</h2><p id="remove-description"><strong>{removeTarget.fullName}</strong>을 이 프로젝트에서 제거합니다. GitHub 원본 Repository는 삭제되지 않습니다.</p>
+      <h2 id="remove-title">Repository 연결을 제거할까요?</h2><p id="remove-description"><strong>{removeTarget.fullName ?? "차단된 Repository"}</strong>을 이 프로젝트에서 제거합니다. GitHub 원본 Repository는 삭제되지 않습니다.</p>
       <div className={styles.actions}><button type="button" className={styles.danger} disabled={busy} onClick={() => void remove()}>{busy ? "제거 중…" : "연결 제거"}</button>
         <button type="button" className={styles.secondary} disabled={busy} onClick={() => setRemoveTarget(null)}>취소</button></div></div></div>}
   </main>;

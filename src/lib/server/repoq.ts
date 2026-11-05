@@ -4,8 +4,17 @@ import { jwt } from "./github";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const publicUrl = /^https:\/\/github\.com\/([A-Za-z0-9][A-Za-z0-9-]{0,38})\/([A-Za-z0-9_.-]{1,100})\/?$/;
+const repositoryId = /^[1-9][0-9]{0,18}$/;
+export const privateEnabled = () => process.env.WEB_PRIVATE_REGISTRATION_ENABLED === "true";
 const statuses = new Set(["QUEUED", "RUNNING", "FAILED", "INSUFFICIENT_EVIDENCE", "CANCELLED", "READY"]);
-const errors = new Set(["invalid_request", "invalid_name", "invalid_repository_url", "invalid_repositories", "repository_unavailable", "repository_already_registered", "last_repository_required", "analysis_in_progress", "idempotency_key_conflict", "project_not_found", "repository_not_found", "invalid_session", "account_unavailable", "auth_unavailable", "github_unavailable", "github_rate_limited", "project_unavailable", "private_repository_not_supported", "invalid_token"]);
+const errors: Record<string, number[]> = {
+  invalid_request: [400], invalid_name: [400], invalid_repository_url: [400], invalid_repositories: [400], repository_unavailable: [400],
+  repository_already_registered: [409], last_repository_required: [409], analysis_in_progress: [409], idempotency_key_conflict: [409],
+  project_not_found: [404], repository_not_found: [404], invalid_session: [401], invalid_token: [401],
+  account_unavailable: [403], auth_unavailable: [503], github_unavailable: [503], github_rate_limited: [503],
+  project_unavailable: [503], private_repository_not_supported: [400], private_collection_consent_required: [403],
+  private_access_unavailable: [403], github_access_denied: [403], github_pagination_limit: [503], github_reauthorization_required: [401],
+};
 
 export function projectId(value: string) {
   if (!uuid.test(value)) throw new BffError(400, "invalid_request");
@@ -19,15 +28,41 @@ export function repositoriesInput(value: unknown) {
   if (!Array.isArray(value) || value.length < 1 || value.length > 20) throw new BffError(400, "invalid_repositories");
   const seen = new Set<string>();
   return value.map(item => {
-    if (!item || typeof item !== "object" || Array.isArray(item) || Object.keys(item).some(k => k !== "repositoryUrl"))
+    if (!item || typeof item !== "object" || Array.isArray(item))
       throw new BffError(400, "invalid_request");
-    const raw = (item as Record<string, unknown>).repositoryUrl;
+    const entry = item as Record<string, unknown>;
+    if (entry.githubRepositoryId !== undefined) {
+      if (!privateEnabled()) throw new BffError(400, "private_repository_not_supported");
+      if (Object.keys(entry).some(k => !["githubRepositoryId", "consents", "visibility"].includes(k)) ||
+          typeof entry.githubRepositoryId !== "string" || !repositoryId.test(entry.githubRepositoryId) ||
+          entry.visibility !== undefined && entry.visibility !== "PRIVATE" || !Array.isArray(entry.consents) || entry.consents.length !== 2)
+        throw new BffError(400, "invalid_request");
+      const purposes = new Set<string>();
+      const consents = entry.consents.map(raw => {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new BffError(400, "invalid_request");
+        const c = raw as Record<string, unknown>;
+        if (Object.keys(c).some(k => !["purpose", "decision", "policyVersion"].includes(k)) ||
+            !["PRIVATE_COLLECTION", "EXTERNAL_AI"].includes(String(c.purpose)) || purposes.has(String(c.purpose)) ||
+            !["GRANTED", "DENIED"].includes(String(c.decision)) || typeof c.policyVersion !== "string" || !c.policyVersion || c.policyVersion.length > 100)
+          throw new BffError(400, "invalid_request");
+        purposes.add(c.purpose as string);
+        return { purpose: c.purpose, decision: c.decision, policyVersion: c.policyVersion };
+      });
+      if (!purposes.has("PRIVATE_COLLECTION") || !purposes.has("EXTERNAL_AI")) throw new BffError(400, "invalid_request");
+      if (!consents.some(c => c.purpose === "PRIVATE_COLLECTION" && c.decision === "GRANTED")) throw new BffError(403, "private_collection_consent_required");
+      const identity = `id:${entry.githubRepositoryId}`;
+      if (seen.has(identity)) throw new BffError(409, "repository_already_registered");
+      seen.add(identity);
+      return { githubRepositoryId: entry.githubRepositoryId, consents };
+    }
+    if (Object.keys(entry).some(k => k !== "repositoryUrl")) throw new BffError(400, "invalid_request");
+    const raw = entry.repositoryUrl;
     if (typeof raw !== "string" || raw.length > 300) throw new BffError(400, "invalid_repository_url");
     const url = raw.trim();
     const match = publicUrl.exec(url);
     if (!match || match[2] === "." || match[2] === ".." || match[2].endsWith(".git")) throw new BffError(400, "invalid_repository_url");
     const canonical = `https://github.com/${match[1]}/${match[2]}`;
-    const identity = canonical.toLowerCase();
+    const identity = `url:${canonical.toLowerCase()}`;
     if (seen.has(identity)) throw new BffError(409, "repository_already_registered");
     seen.add(identity);
     return { repositoryUrl: canonical };
@@ -53,10 +88,12 @@ function members(value: unknown) {
   if (!Array.isArray(value) || value.length < 1 || value.length > 1000) throw new BffError(503, "project_unavailable");
   return value.map(raw => {
     const r = record(raw);
-    if (typeof r.id !== "string" || !uuid.test(r.id) || typeof r.githubRepositoryId !== "string" || !/^\d+$/.test(r.githubRepositoryId) ||
-      typeof r.fullName !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(r.fullName) || !["PUBLIC", "PRIVATE"].includes(String(r.visibility)) ||
+    const blocked = r.visibility === "PRIVATE" && r.accessStatus === "BLOCKED";
+    if (typeof r.id !== "string" || !uuid.test(r.id) ||
+      !(blocked && r.githubRepositoryId === null || typeof r.githubRepositoryId === "string" && repositoryId.test(r.githubRepositoryId)) ||
+      !(blocked && r.fullName === null || typeof r.fullName === "string" && /^[^/\s]+\/[^/\s]+$/.test(r.fullName)) || !["PUBLIC", "PRIVATE"].includes(String(r.visibility)) ||
       !["ACTIVE", "BLOCKED"].includes(String(r.accessStatus)) || !validStatus(r.analysisStatus) ||
-      !(r.commitSha === null || typeof r.commitSha === "string")) throw new BffError(503, "project_unavailable");
+      !(r.commitSha === null || typeof r.commitSha === "string") || blocked && (r.githubRepositoryId !== null || r.fullName !== null || r.commitSha !== null)) throw new BffError(503, "project_unavailable");
     return { id: r.id, githubRepositoryId: r.githubRepositoryId, fullName: r.fullName, visibility: r.visibility,
       accessStatus: r.accessStatus, analysisStatus: r.analysisStatus, commitSha: r.commitSha };
   });
@@ -85,12 +122,12 @@ export function detailOf(value: unknown) {
 }
 export function registrationOf(value: unknown) {
   const r = record(value);
-  if (typeof r.id !== "string" || !uuid.test(r.id) || r.analysisStatus !== "QUEUED") throw new BffError(503, "project_unavailable");
+  if (typeof r.id !== "string" || !uuid.test(r.id) || !validStatus(r.analysisStatus)) throw new BffError(503, "project_unavailable");
   return { id: r.id, analysisStatus: r.analysisStatus, repositories: members(r.repositories) };
 }
 export function additionOf(value: unknown) {
   const r = record(value);
-  if (typeof r.projectId !== "string" || !uuid.test(r.projectId) || r.analysisStatus !== "QUEUED" ||
+  if (typeof r.projectId !== "string" || !uuid.test(r.projectId) || !validStatus(r.analysisStatus) ||
     !Number.isSafeInteger(r.membershipVersion) || (r.membershipVersion as number) < 2)
     throw new BffError(503, "project_unavailable");
   return { projectId: r.projectId, membershipVersion: r.membershipVersion, analysisStatus: r.analysisStatus,
@@ -129,7 +166,7 @@ export async function projectRequest(path: string, method: "GET" | "POST" | "DEL
   } catch { throw new BffError(503, "project_unavailable"); }
   if (response.status === expected) return data;
   const error = record(data).code;
-  if (typeof error === "string" && errors.has(error) && [400, 401, 403, 404, 409, 503].includes(response.status))
+  if (typeof error === "string" && errors[error]?.includes(response.status))
     throw new BffError(response.status, error);
   throw new BffError(503, "project_unavailable");
 }
