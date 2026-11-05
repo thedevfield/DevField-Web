@@ -4,26 +4,31 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { RepositoryFields } from "./RepositoryFields";
 import { csrfToken, responseData, urlsOf } from "./project-ui";
+import { PrivateRepositoryPicker, privateEntries, type Choice } from "./PrivateRepositoryPicker";
 import styles from "./workspace.module.css";
 
-export function NewProject() {
+export function NewProject({ privateEnabled }: { privateEnabled: boolean }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [rows, setRows] = useState([""]);
+  const [privateChoices, setPrivateChoices] = useState<Choice[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef<{ body: string; key: string } | null>(null);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     setError("");
+    setBusy(true);
     let body: string;
     try {
       const trimmed = name.trim();
       if (!trimmed || trimmed.length > 100) throw new Error("프로젝트 이름은 1~100자로 입력해 주세요.");
-      body = JSON.stringify({ name: trimmed, repositories: urlsOf(rows) });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "입력 내용을 확인해 주세요."); return; }
+      const publicRows = rows.filter(row => row.trim());
+      const repositories = [...(publicRows.length ? urlsOf(publicRows) : []), ...await privateEntries(privateChoices, setPrivateChoices)];
+      if (!repositories.length || repositories.length > 20) throw new Error("Repository를 1~20개 선택해 주세요.");
+      body = JSON.stringify({ name: trimmed, repositories });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "입력 내용을 확인해 주세요."); setBusy(false); return; }
     if (pending.current?.body !== body) pending.current = { body, key: crypto.randomUUID() };
-    setBusy(true);
     try {
       const csrf = await csrfToken();
       const response = await fetch("/api/repoq/projects", { method: "POST", cache: "no-store",
@@ -47,13 +52,14 @@ export function NewProject() {
         onChange={event => setName(event.target.value)} />
       <p className={styles.help}>공백을 제외한 1~100자</p>
       <div className={styles.formDivider} /><p className={styles.formSectionLabel}>02 / REPOSITORIES</p>
-      <RepositoryFields rows={rows} onChange={setRows} disabled={busy} />
+      <RepositoryFields rows={rows} onChange={setRows} disabled={busy} allowEmpty={privateChoices.length > 0} />
+      <PrivateRepositoryPicker enabled={privateEnabled} disabled={busy} choices={privateChoices} onChange={setPrivateChoices} />
       {error && <p className={styles.error} role="alert">{error}</p>}
       <div className={styles.actions}><button type="submit" className={styles.primary} disabled={busy}>{busy ? "생성 중…" : "프로젝트 만들기"}</button>
         <Link className={styles.secondary} href="/app/repoq">취소</Link></div>
     </form><aside className={styles.formRail} aria-label="프로젝트 등록 안내">
       <div className={styles.editorialRail}><strong>하나의 프로젝트, 여러 Repository</strong><p>프론트엔드·백엔드 저장소를 하나의 프로젝트로 묶어 관리할 수 있습니다.</p></div>
-      <div className={styles.editorialRail}><strong>지금 가능한 범위</strong><p>Public Repository URL을 등록할 수 있습니다. 분석은 등록 후 대기 상태로 표시되며, Private 등록과 실제 분석은 준비 중입니다.</p></div>
+      <div className={styles.editorialRail}><strong>지금 가능한 범위</strong><p>Public Repository는 App 없이 등록합니다. Private 등록은 서버 기능과 동의 정책이 준비된 환경에서만 가능합니다. 분석은 등록 후 대기 상태로 표시됩니다.</p></div>
     </aside></div>
   </main>;
 }

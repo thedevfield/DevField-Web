@@ -1,4 +1,4 @@
-export type Member = { id: string; githubRepositoryId: string; fullName: string; visibility: "PUBLIC" | "PRIVATE";
+export type Member = { id: string; githubRepositoryId: string | null; fullName: string | null; visibility: "PUBLIC" | "PRIVATE";
   accessStatus: string; analysisStatus: string; commitSha: string | null };
 export type ProjectItem = { id: string; name: string; analysisStatus: string; repositoryCount: number;
   privateRepositoryCount: number; canInterview: boolean };
@@ -20,6 +20,16 @@ export const errorText: Record<string, string> = {
   account_unavailable: "계정을 이용할 수 없습니다.", auth_unavailable: "인증 서비스에 연결할 수 없습니다. 다시 시도해 주세요.",
   project_unavailable: "RepoQ 서비스에 연결할 수 없습니다. 다시 시도해 주세요.", github_unavailable: "GitHub에 연결할 수 없습니다. 다시 시도해 주세요.",
   github_rate_limited: "GitHub 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.",
+  private_repository_not_supported: "Private Repository 등록은 현재 비활성입니다.",
+  private_collection_consent_required: "Private 코드 수집·분석 동의가 필요합니다.",
+  private_access_unavailable: "Private Repository 접근 권한을 확인할 수 없습니다.",
+  github_access_denied: "GitHub App의 Repository 접근 권한을 확인해 주세요.",
+  github_reauthorization_required: "GitHub App 사용자 재승인이 필요합니다.",
+  consent_not_owned: "철회할 동의 기록을 찾을 수 없습니다.",
+  revocation_required: "기존 허용은 거부로 바꿀 수 없습니다. 철회를 선택해 주세요.",
+  revocation_in_progress: "철회가 처리 중입니다. 완료 후 다시 확인해 주세요.",
+  consent_policy_unavailable: "현재 동의 정책 버전을 확인할 수 없습니다. 새로 조회해 주세요.",
+  connection_not_found: "GitHub App 연결을 찾을 수 없습니다.",
 };
 export function messageFor(code: string) { return errorText[code] ?? "요청을 완료하지 못했습니다. 다시 시도해 주세요."; }
 export async function responseData(response: Response) {
