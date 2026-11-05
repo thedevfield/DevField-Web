@@ -22,11 +22,21 @@ export async function PUT(request: NextRequest, { params }: Context) {
     const { token } = await jwt();
     const path = `/api/github/repositories/${id}/consents`;
     const current = consentStatusOf(await project(path, token, "GET"), id);
-    if (!current.consentSubmissionAvailable || body.consents.some(consent => consent.policyVersion !== current.currentPolicyVersion))
-      throw new BffError(409, "consent_policy_unavailable");
-    if (!privateEnabled() && body.consents.some(consent => consent.decision === "GRANTED" &&
-        !current.consents.some(previous => previous.purpose === consent.purpose && previous.decision === "GRANTED" && previous.policyVersion === current.currentPolicyVersion)))
-      throw new BffError(400, "private_repository_not_supported");
+    for (const consent of body.consents) {
+      const previous = current.consents.find(item => item.purpose === consent.purpose)!;
+      if (consent.decision === "REVOKED") {
+        if (previous.decision !== "GRANTED" && previous.decision !== "REVOKED") throw new BffError(403, "consent_not_owned");
+        continue;
+      }
+      if (consent.decision === previous.decision && consent.policyVersion === previous.policyVersion) continue;
+      if (!current.consentSubmissionAvailable || consent.policyVersion !== current.currentPolicyVersion)
+        throw new BffError(409, "consent_policy_unavailable");
+      if (consent.decision === "GRANTED") {
+        if (!privateEnabled()) throw new BffError(400, "private_repository_not_supported");
+        if (previous.decision === "REVOKED" && previous.cleanupState !== "NO_DERIVED_DATA")
+          throw new BffError(409, "revocation_in_progress");
+      }
+    }
     const result = await project(path, token, "PUT", body, "200_OR_202");
     const status = result.__httpStatus as 200 | 202;
     return noStore(revocationOf(result, status), status);

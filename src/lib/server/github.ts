@@ -96,27 +96,33 @@ export function consentStatusOf(value: Record<string, unknown>, id: string) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return unavailable();
     const c = raw as Record<string, unknown>;
     if (!["PRIVATE_COLLECTION", "EXTERNAL_AI"].includes(String(c.purpose)) || seen.has(String(c.purpose)) ||
-        !(c.decision === null && c.policyVersion === null || ["GRANTED", "DENIED", "REVOKED"].includes(String(c.decision)) && typeof c.policyVersion === "string" && !!c.policyVersion)) return unavailable();
+        !(c.decision === null && c.policyVersion === null && c.cleanupState === null ||
+          ["GRANTED", "DENIED"].includes(String(c.decision)) && typeof c.policyVersion === "string" && !!c.policyVersion && c.cleanupState === null ||
+          c.decision === "REVOKED" && typeof c.policyVersion === "string" && !!c.policyVersion &&
+          typeof c.cleanupState === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(c.cleanupState))) return unavailable();
     seen.add(c.purpose as string);
-    return { purpose: c.purpose as "PRIVATE_COLLECTION" | "EXTERNAL_AI", decision: c.decision as "GRANTED" | "DENIED" | "REVOKED" | null, policyVersion: c.policyVersion as string | null };
+    return { purpose: c.purpose as "PRIVATE_COLLECTION" | "EXTERNAL_AI", decision: c.decision as "GRANTED" | "DENIED" | "REVOKED" | null,
+      policyVersion: c.policyVersion as string | null, cleanupState: c.cleanupState as string | null };
   });
   if (seen.size !== 2) return unavailable();
   return { githubRepositoryId: id, currentPolicyVersion: value.currentPolicyVersion as string | null, consentSubmissionAvailable: value.consentSubmissionAvailable, consents };
 }
 
 export function consentInput(value: Record<string, unknown>) {
-  if (Object.keys(value).some(k => k !== "consents") || !Array.isArray(value.consents) || value.consents.length !== 2) throw new BffError(400, "invalid_request");
+  if (Object.keys(value).some(k => k !== "consents") || !Array.isArray(value.consents) || ![1, 2].includes(value.consents.length)) throw new BffError(400, "invalid_request");
   const seen = new Set<string>();
   const consents = value.consents.map(raw => {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new BffError(400, "invalid_request");
     const c = raw as Record<string, unknown>;
     if (Object.keys(c).some(k => !["purpose", "decision", "policyVersion"].includes(k)) ||
         !["PRIVATE_COLLECTION", "EXTERNAL_AI"].includes(String(c.purpose)) || seen.has(String(c.purpose)) ||
-        !["GRANTED", "DENIED", "REVOKED"].includes(String(c.decision)) || typeof c.policyVersion !== "string" || !c.policyVersion || c.policyVersion.length > 100)
+        !["GRANTED", "DENIED", "REVOKED"].includes(String(c.decision)) ||
+        !(c.decision === "REVOKED" && c.policyVersion === null || typeof c.policyVersion === "string" && !!c.policyVersion && c.policyVersion.length <= 100))
       throw new BffError(400, "invalid_request");
     seen.add(c.purpose as string);
     return { purpose: c.purpose, decision: c.decision, policyVersion: c.policyVersion };
   });
+  if (consents.length === 1 && consents[0].decision !== "REVOKED") throw new BffError(400, "invalid_request");
   return { consents };
 }
 
