@@ -1,13 +1,23 @@
+import type { AnalysisSnapshot } from "@/lib/repoq-analysis";
 export type Member = { id: string; githubRepositoryId: string | null; fullName: string | null; visibility: "PUBLIC" | "PRIVATE";
   accessStatus: string; analysisStatus: string; commitSha: string | null };
 export type ProjectItem = { id: string; name: string; analysisStatus: string; repositoryCount: number;
   privateRepositoryCount: number; canInterview: boolean };
 export type ProjectDetail = { id: string; name: string; projectStatus: string; analysisStatus: string;
-  canInterview: boolean; latestReadySnapshot: null; membershipVersion: number; repositories: Member[]; canPrivateInterview: boolean };
+  canInterview: boolean; latestReadySnapshot: AnalysisSnapshot | null; membershipVersion: number; repositories: Member[]; canPrivateInterview: boolean };
 
 export const statusText: Record<string, string> = {
   QUEUED: "분석 대기 중", RUNNING: "분석 진행 중", FAILED: "분석 실패", INSUFFICIENT_EVIDENCE: "근거 부족",
-  CANCELLED: "분석 취소됨", READY: "분석 상태 확인 필요",
+  CANCELLED: "분석 취소됨", READY: "분석 완료 · READY",
+};
+export const analysisMessage: Record<string, string> = {
+  QUEUED: "Repository 등록이 완료됐습니다. 분석 작업이 시작되기를 기다리고 있습니다.",
+  RUNNING: "Repository별 분석이 진행 중입니다. 분석 중에는 구성을 변경할 수 없습니다.",
+  READY: "공개 접근이 확인된 코드 근거를 표시합니다. 분석 완료는 면접 시작 가능을 뜻하지 않습니다.",
+  FAILED: "이번 분석에 실패했습니다. 아래 결과가 있다면 현재 접근이 확인된 이전 분석 결과입니다.",
+  INSUFFICIENT_EVIDENCE: "분석 가능한 실제 구현 근거가 부족합니다. 문서나 의존성 선언만으로 분석 완료로 처리하지 않습니다.",
+  CANCELLED: "분석이 취소되었습니다. 취소된 작업의 결과는 게시하지 않습니다.",
+  BLOCKED: "현재 Repository 접근을 확인할 수 없어 분석 결과와 코드 근거를 숨겼습니다. 잠시 후 다시 확인해 주세요.",
 };
 export const errorText: Record<string, string> = {
   invalid_name: "프로젝트 이름은 1~100자로 입력해 주세요.", invalid_repository_url: "GitHub Public Repository URL을 확인해 주세요.",
@@ -34,7 +44,7 @@ export const errorText: Record<string, string> = {
 export function messageFor(code: string) { return errorText[code] ?? "요청을 완료하지 못했습니다. 다시 시도해 주세요."; }
 export async function responseData(response: Response) {
   if (response.status === 204) return null;
-  const data = await response.json().catch(() => ({}));
+  const data = await response.json().catch(() => { throw new Error(messageFor("project_unavailable")); });
   if (!response.ok) throw new Error(messageFor(typeof data.code === "string" ? data.code : ""));
   return data;
 }
