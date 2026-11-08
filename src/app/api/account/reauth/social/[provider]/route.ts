@@ -17,6 +17,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pr
       !/^[A-Za-z0-9_-]{43}$/.test(parsed.searchParams.get("intent") ?? "") || [...parsed.searchParams.keys()].some(x => x !== "intent") || parsed.hash)
       throw new BffError(503, "auth_unavailable");
     (await cookies()).set(`DF_ACCOUNT_OAUTH_${flowId}`, binding, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 300 });
-    return noStore({ authorizationUrl: url });
+    return noStore({ authorizationUrl: url, flowId });
   } catch (error) { return failed(error); }
 }

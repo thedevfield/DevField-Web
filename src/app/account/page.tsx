@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { accountMe, BffError, type AccountProfile } from "@/lib/server/auth";
+import { accountDeletionContext, accountMe, BffError, sessionHandle, type AccountProfile } from "@/lib/server/auth";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHome";
 import { CopyUserId } from "./CopyUserId";
 import styles from "./page.module.css";
 import { AccountMethods } from "./AccountMethods";
 import { EmailMethods } from "./EmailMethods";
+import { AccountDeletion } from "./AccountDeletion";
 import { providerEnabled } from "@/lib/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div className={styles.field}><dt>{label}</dt><dd>{children}</dd></div>;
 }
 
-function AccountDetails({ profile }: { profile: AccountProfile }) {
+function AccountDetails({ profile, deletionContext }: { profile: AccountProfile; deletionContext: string }) {
   const deleting = profile.deletionStatus === "DELETING";
+  const enabled = (["google", "github", "kakao"] as const).filter(providerEnabled);
   return <main id="account-main" className={styles.main}>
     <Link className={styles.backLink} href="/app"><span aria-hidden="true">←</span> Workspace로 돌아가기</Link>
     <div className={styles.intro}>
@@ -28,6 +30,7 @@ function AccountDetails({ profile }: { profile: AccountProfile }) {
       <strong>계정 삭제가 진행 중입니다.</strong><p>Workspace 이용이 제한됩니다. 계정 상태가 변경될 때까지 기다려주세요.</p>
     </section>}
     <div className={styles.grid}>
+      <AccountDeletion key={deletionContext} profile={profile} enabled={enabled} deletionContext={deletionContext}>
       <section className={styles.card} aria-labelledby="account-info-title">
         <p className={styles.cardEyebrow}>01 / PROFILE</p><h2 id="account-info-title">계정 정보</h2>
         <dl>
@@ -43,16 +46,23 @@ function AccountDetails({ profile }: { profile: AccountProfile }) {
         <p className={styles.accessIntro}>DevField에 로그인할 수 있는 수단을 관리합니다.</p>
         <div className={styles.emailMethod}><strong>이메일 로그인</strong><span>{profile.emailLoginEnabled ? "사용 가능" : profile.emailOwnershipVerified ? "비밀번호 설정 필요" : profile.emailLoginPending ? "인증 대기" : "사용 불가"}</span></div>
         <EmailMethods profile={profile} />
-        <AccountMethods profile={profile} enabled={( ["google", "github", "kakao"] as const).filter(providerEnabled)} />
+        <AccountMethods profile={profile} enabled={enabled} />
       </section>
+      </AccountDeletion>
     </div>
   </main>;
 }
 
 export default async function AccountPage() {
   let profile: AccountProfile | undefined;
+  let deletionContext = "";
   let status: "forbidden" | "unavailable" | undefined;
-  try { profile = await accountMe(); }
+  try {
+    const handle = await sessionHandle();
+    if (!handle) throw new BffError(401, "invalid_session");
+    deletionContext = accountDeletionContext(handle);
+    profile = await accountMe();
+  }
   catch (error) {
     if (error instanceof BffError && error.status === 401) redirect("/login");
     status = error instanceof BffError && error.status === 403 ? "forbidden" : "unavailable";
@@ -60,7 +70,7 @@ export default async function AccountPage() {
   return <div className={styles.page}>
     <a className={styles.skipLink} href="#account-main">본문으로 건너뛰기</a>
     <WorkspaceHeader withLogout={!!profile} current="account" />
-    {profile ? <AccountDetails profile={profile} /> : <main id="account-main" className={styles.errorMain}>
+    {profile ? <AccountDetails profile={profile} deletionContext={deletionContext} /> : <main id="account-main" className={styles.errorMain}>
       <section className={styles.errorCard} role="alert" aria-labelledby="account-error-title">
         <p className={styles.cardEyebrow}>{status === "forbidden" ? "ACCOUNT ACCESS" : "SERVICE UNAVAILABLE"}</p>
         <h1 id="account-error-title">{status === "forbidden" ? "계정을 이용할 수 없습니다" : "계정 정보를 불러올 수 없습니다"}</h1>
