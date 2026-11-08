@@ -1,5 +1,11 @@
 .page{--ink:#0b1220;--muted:#5d6b69;--line:#dce4e1;--deep:#087f6d;min-height:100vh;background:#f6f8f7;color:var(--ink)}
-.page :is(a,button,input):focus-visible{outline:3px solid var(--deep);outline-offset:3px}
+.page :is(a,button,input,select,textarea):focus-visible{outline:3px solid var(--deep);outline-offset:3px}
+.interviewControls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:12px 0}
+.interviewControls textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:12px;font:inherit;resize:vertical}
+.interviewControls select{border:1px solid var(--line);border-radius:9px;padding:8px;max-width:100%}
+.interviewText{overflow-wrap:anywhere;white-space:pre-wrap}
+.interviewText dt{font-weight:750;margin-top:12px}
+.interviewText dd{margin-left:0}
 .main{width:min(100% - 40px,1200px);margin:auto;padding:42px 0 96px}
 .main h1{font-size:clamp(32px,4vw,46px);letter-spacing:-.06em;line-height:1.15;margin:8px 0;overflow-wrap:anywhere}
 .main h2{font-size:clamp(21px,3vw,27px);letter-spacing:-.04em;margin:0 0 14px}

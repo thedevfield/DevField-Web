@@ -127,12 +127,12 @@ test("detail refresh clears old data and ignores late success after a protected 
   const noop = () => null;
   const { ProjectDetailView } = load("src/app/app/repoq/ProjectDetailView.tsx", {
     react, "next/link": noop, "lucide-react": { Plus: noop, RefreshCw: noop, X: noop }, "./project-ui": ui,
-    "./AnalysisSnapshotView": { AnalysisSnapshotView }, "./GitHubMark": { GitHubMark: noop },
+    "./AnalysisSnapshotView": { AnalysisSnapshotView }, "./InterviewProjectPanel": { InterviewProjectPanel: noop }, "./GitHubMark": { GitHubMark: noop },
     "./RepositoryFields": { RepositoryFields: noop }, "./PrivateRepositoryPicker": { PrivateRepositoryPicker: noop },
   }, { fetch: () => new Promise((resolve, reject) => requests.push({ resolve, reject })),
     window: { location: { assign: noop }, setTimeout: (fn, ms) => { assert.equal(ms, 30000); expire = fn; return 1; },
       clearTimeout: noop } });
-  ProjectDetailView({ id: readyDetail().id, privateEnabled: false });
+  ProjectDetailView({ id: readyDetail().id, privateEnabled: false, interviewModes: { FREE: false, MOCK: false } });
   states[0] = readyDetail();
   const old = refresh(); assert.equal(states[0], null);
   const latest = refresh();
@@ -143,7 +143,7 @@ test("detail refresh clears old data and ignores late success after a protected 
   const failed = refresh(); requests[2].reject(new DOMException("Timed out", "TimeoutError")); await failed;
   assert.equal(states[0], null); assert.equal(states[1], false); assert.ok(states[3]);
   states[0] = readyDetail(); stateIndex = 0; refIndex = 0; effects.length = 0;
-  ProjectDetailView({ id: readyDetail().id, privateEnabled: false });
+  ProjectDetailView({ id: readyDetail().id, privateEnabled: false, interviewModes: { FREE: false, MOCK: false } });
   effects.at(-1)(); expire();
   assert.equal(states[0], null); assert.equal(states[8], null); assert.ok(states[4]);
 });
