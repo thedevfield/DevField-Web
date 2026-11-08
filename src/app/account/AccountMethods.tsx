@@ -134,7 +134,7 @@ export function AccountMethods({ profile, enabled }: { profile: AccountProfile; 
         </div>}
       </li>;
     })}</ul>
-    {action && <div className={styles.changePanel}>
+    {action && profile.deletionStatus !== "DELETING" && <div className={styles.changePanel}>
       <h3 className={styles.changeTitle}><ProviderIcon provider={action.provider} />{names[action.provider]} {action.kind === "link" ? "연결" : "연결 해제"}</h3>
       <p>{verified ? action.kind === "link" ? `계정 확인이 완료됐습니다. 이제 ${names[action.provider]} 계정을 연결할 수 있습니다.` : `계정 확인이 완료됐습니다. ${names[action.provider]} 연결을 해제할 수 있습니다.` : !profile.emailLoginEnabled && selectedReauthProvider === "google" ? "현재 계정에 연결된 Google 계정인지 확인합니다. Google 비밀번호 재입력이나 추가 인증을 보장하지 않습니다." : "계정 보호를 위해 현재 로그인 수단으로 본인 확인을 진행합니다."}</p>
       {!verified && profile.emailLoginEnabled ? <form id="account-reauth-form" onSubmit={confirmPassword} className={styles.reauthForm}>

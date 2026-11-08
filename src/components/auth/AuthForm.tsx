@@ -10,11 +10,12 @@ import { FormField } from "./FormField";
 
 type Mode = "signup" | "login";
 
-export async function postAuth(path: string, body: object) {
+export async function postAuth(path: string, body: object | undefined, method: "POST" | "DELETE" = "POST",
+  headers?: Record<string, string>) {
   const proof = await fetch("/api/auth/csrf", { cache: "no-store" });
   if (!proof.ok) throw new Error("csrf_unavailable");
   const { token } = await proof.json();
-  return fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-DevField-CSRF": token }, body: JSON.stringify(body), cache: "no-store" });
+  return fetch(path, { method, headers: { ...headers, ...(body ? { "Content-Type": "application/json" } : {}), "X-DevField-CSRF": token }, body: JSON.stringify(body), cache: "no-store" });
 }
 
 export function AuthForm({ mode }: { mode: Mode }) {

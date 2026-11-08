@@ -14,6 +14,7 @@ const profile = (providers = [], overrides = {}) => ({
 test("account BFF and existing auth regressions against isolated Auth mock", { timeout: 120000 }, async () => {
   const calls = [];
   let releaseSlow;
+  let timeoutAccepted = false;
   const auth = createServer(async (req, res) => {
     calls.push({ path: req.url, method: req.method, handle: req.headers["x-devfield-session-handle"], key: req.headers["x-devfield-service-key"] });
     res.setHeader("Content-Type", "application/json");
@@ -26,29 +27,51 @@ test("account BFF and existing auth regressions against isolated Auth mock", { t
     }
     if (req.url === "/internal/auth/oauth-handoffs/exchange" && req.method === "POST") {
       const body = JSON.parse(await new Promise(resolve => { let raw = ""; req.on("data", chunk => raw += chunk); req.on("end", () => resolve(raw)); }));
+      if (body.expectedPurpose === "ACCOUNT") {
+        res.writeHead(200).end(JSON.stringify({ returnRoute: "REAUTH_COMPLETE", reauthProof: "r".repeat(43) })); return;
+      }
       const outcome = body.expectedPurpose === "LOGIN" ? "SIGNUP_REQUIRED" : "EXISTING_ACCOUNT";
       res.writeHead(200).end(JSON.stringify({ sessionHandle: null, userId: null, returnRoute: `${body.expectedPurpose}_COMPLETE`, outcome })); return;
+    }
+    if (req.url === "/api/account/me" && req.method === "DELETE") {
+      const raw = await new Promise(resolve => { let body = ""; req.on("data", chunk => body += chunk); req.on("end", () => resolve(body)); });
+      calls.at(-1).body = raw ? JSON.parse(raw) : undefined;
+      if (handle === "bad-service") { res.writeHead(401).end(); return; }
+      if (handle === "revoked") { res.writeHead(401).end(JSON.stringify({ code: "invalid_session" })); return; }
+      if (handle === "completed") { res.writeHead(204).end(); return; }
+      if (handle === "bad-delete-dto") { res.writeHead(202).end(JSON.stringify({ deletionStatus: "NONE" })); return; }
+      if (handle === "timeout-deletion") { timeoutAccepted = true; return; }
+      if (handle === "uncertain-deletion") { res.destroy(); return; }
+      if (handle === "deleting" || calls.at(-1).body?.reauthProof === "r".repeat(43)) {
+        res.writeHead(202).end(JSON.stringify({ deletionStatus: "DELETING", secret: "must-not-leak" })); return;
+      }
+      res.writeHead(403).end(JSON.stringify({ code: "reauth_required" })); return;
     }
     if (req.url === "/api/account/me" && req.method === "GET") {
       res.setHeader("Cache-Control", "no-store");
       if (handle === "slow") { releaseSlow = () => res.writeHead(200).end(JSON.stringify(profile())); return; }
       if (handle === "unavailable") { res.writeHead(503).end(JSON.stringify({ code: "auth_unavailable", secret: "must-not-leak" })); return; }
       if (handle === "forbidden") { res.writeHead(403).end(JSON.stringify({ code: "account_unavailable" })); return; }
+      if (handle === "bad-service") { res.writeHead(401).end(); return; }
       if (["expired", "revoked"].includes(handle)) { res.writeHead(401).end(JSON.stringify({ code: "invalid_session" })); return; }
       const data = handle === "github" ? profile(["GITHUB"], { email: null, emailLoginEnabled: false, displayName: null })
         : handle === "google-kakao" ? profile(["GOOGLE", "KAKAO"], { email: null, emailLoginEnabled: false })
-        : handle === "deleting" ? profile([], { deletionStatus: "DELETING" }) : profile();
+        : handle === "deleting" || (handle === "timeout-deletion" && timeoutAccepted) ? profile([], { deletionStatus: "DELETING" }) : profile();
+      if (handle === "second-account") data.userId = "00000000-0000-4000-8000-000000000002";
       res.writeHead(200).end(JSON.stringify({ ...data, sessionHandle: "must-not-leak", jwt: "must-not-leak", secret: "must-not-leak" })); return;
     }
     if (req.url === "/internal/auth/session-token" && req.method === "POST") {
       if (handle === "deleting" || handle === "forbidden") { res.writeHead(403).end(JSON.stringify({ code: "session_unavailable" })); return; }
-      if (handle === "email") { res.writeHead(200).end(JSON.stringify({ jwt: "fake-jwt" })); return; }
+      if (["email", "second-account"].includes(handle)) { res.writeHead(200).end(JSON.stringify({ jwt: "fake-jwt" })); return; }
       res.writeHead(401).end(JSON.stringify({ code: "invalid_session" })); return;
     }
     if (req.url === "/api/auth/logout" && req.method === "POST") { res.writeHead(204).end(); return; }
     if (req.url === "/api/account/reauth/password" && req.method === "POST") {
-      if (handle !== "email") { res.writeHead(401).end(JSON.stringify({ code: "invalid_session" })); return; }
+      if (!["email", "second-account"].includes(handle)) { res.writeHead(401).end(JSON.stringify({ code: "invalid_session" })); return; }
       res.writeHead(200).end(JSON.stringify({ reauthProof: "r".repeat(43) })); return;
+    }
+    if (req.url === "/api/account/reauth/social/google" && req.method === "POST") {
+      res.writeHead(201).end(JSON.stringify({ authorizationUrl: `http://127.0.0.1:18080/oauth2/authorization/google?intent=${"i".repeat(43)}` })); return;
     }
     if (req.url === "/api/account/social-links/google" && req.method === "POST") {
       if (handle !== "email") { res.writeHead(401).end(JSON.stringify({ code: "invalid_session" })); return; }
@@ -102,7 +125,10 @@ test("account BFF and existing auth regressions against isolated Auth mock", { t
     assert.equal((await get("/app", "deleting")).status, 200);
     assert.match(await (await get("/app", "deleting")).text(), /계정을 이용할 수 없습니다/);
     assert.equal((await get("/account", "deleting")).status, 200);
-    assert.match(await (await get("/account", "deleting")).text(), /계정 삭제가 진행 중입니다/);
+    const deletingPage = await (await get("/account", "deleting")).text();
+    assert.match(deletingPage, /계정 삭제가 진행 중입니다/);
+    assert.match(deletingPage, /탈퇴 처리 재확인/);
+    assert.doesNotMatch(deletingPage, /회원 탈퇴 신청/);
     const anonymousPage = await get("/account");
     assert.ok([200, 307].includes(anonymousPage.status));
     if (anonymousPage.status === 200) assert.match(await anonymousPage.text(), /\/login/);
@@ -118,6 +144,8 @@ test("account BFF and existing auth regressions against isolated Auth mock", { t
     assert.match(html, /github-invertocat-white\.svg/);
     assert.match(html, /마지막 로그인 수단은 해제할 수 없습니다/);
     assert.match(html, /ACCOUNT \/ OVERVIEW/);
+    assert.match(html, /회원 탈퇴 신청/);
+    assert.doesNotMatch(html, /회원 탈퇴 최종 확인/);
     assert.match(html, /DevField User ID 복사/);
     assert.match(html, /aria-live="polite"/);
     assert.match(html, /aria-current="page"[^>]*>내 계정/);
@@ -166,7 +194,133 @@ test("account BFF and existing auth regressions against isolated Auth mock", { t
     assert.equal(logout.status, 200);
     assert.match(logout.headers.get("set-cookie") ?? "", /DF_WEB_SESSION_DEV=;.*Expires=Thu, 01 Jan 1970/i);
     assert.equal((await get("/api/account/me")).status, 401);
-    assert.ok(calls.filter(call => call.path === "/api/account/me").every(call => call.key === "isolated-test-key" && call.method === "GET"));
+    assert.ok(calls.filter(call => call.path === "/api/account/me").every(call => call.key === "isolated-test-key"));
+    const makeDeletionHeaders = async (handle, retry = false) => {
+      const page = retry ? "" : await (await get("/account", handle)).text();
+      const context = page.replaceAll(String.fromCharCode(92), "").match(/"deletionContext":"([A-Za-z0-9_-]{43})"/)?.[1];
+      if (!retry) assert.ok(context, "account page should bind the deletion action to the rendered session");
+      const seed = await get("/api/auth/csrf", handle);
+      const cookie = seed.headers.get("set-cookie")?.split(";")[0];
+      return { Origin: origin, Cookie: `DF_WEB_SESSION_DEV=${handle}; ${cookie}`, "X-DevField-CSRF": (await seed.json()).token,
+        ...(retry ? { "X-DevField-Deletion-Retry": "1" } : { "X-DevField-Deletion-Context": context }) };
+    };
+    const deleteAccount = (headers, body, query = "") => fetch(`${origin}/api/account/me${query}`, {
+      method: "DELETE", headers, body,
+    });
+    const deleteCalls = () => calls.filter(call => call.path === "/api/account/me" && call.method === "DELETE");
+    const deletionHeaders = await makeDeletionHeaders("email");
+    const start = calls.length;
+    assert.equal((await deleteAccount({ ...deletionHeaders, Origin: "https://other.example" })).status, 403);
+    assert.equal((await deleteAccount({ ...deletionHeaders, "Sec-Fetch-Site": "cross-site" })).status, 403);
+    assert.equal((await deleteAccount({ ...deletionHeaders, "X-DevField-CSRF": "invalid" })).status, 403);
+    assert.equal((await deleteAccount(deletionHeaders, '{"userId":"other","reauthProof":"forged"}')).status, 400);
+    assert.equal((await deleteAccount(deletionHeaders, undefined, "?userId=other")).status, 400);
+    assert.equal(calls.length, start);
+    const noProof = await deleteAccount(deletionHeaders);
+    assert.equal(noProof.status, 403);
+    assert.deepEqual(await noProof.json(), { code: "reauth_required" });
+    assert.equal(deleteCalls().at(-1).body, undefined);
+
+    // Tab A retains its rendered context while tab B replaces the browser's session and proof.
+    const secondHeaders = await makeDeletionHeaders("second-account");
+    assert.notEqual(secondHeaders["X-DevField-Deletion-Context"], deletionHeaders["X-DevField-Deletion-Context"]);
+    const secondProof = await fetch(`${origin}/api/account/reauth/password`, {
+      method: "POST", headers: { ...secondHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "second-password" }),
+    });
+    assert.equal(secondProof.status, 200);
+    const secondCookie = secondProof.headers.getSetCookie().find(cookie => cookie.startsWith("DF_ACCOUNT_REAUTH=")).split(";")[0];
+    const beforeStaleTab = calls.length;
+    const staleTab = await deleteAccount({
+      ...secondHeaders, Cookie: `${secondHeaders.Cookie}; ${secondCookie}`,
+      "X-DevField-Deletion-Context": deletionHeaders["X-DevField-Deletion-Context"],
+    });
+    assert.equal(staleTab.status, 409);
+    assert.deepEqual(await staleTab.json(), { code: "account_session_changed" });
+    assert.equal(staleTab.headers.get("set-cookie"), null);
+    assert.equal(calls.length, beforeStaleTab);
+    const currentTab = await deleteAccount({ ...secondHeaders, Cookie: `${secondHeaders.Cookie}; ${secondCookie}` });
+    assert.equal(currentTab.status, 202);
+    assert.equal(deleteCalls().at(-1).handle, "second-account");
+
+    const startSocialReauth = async () => {
+      const response = await fetch(`${origin}/api/account/reauth/social/google`, { method: "POST", headers: deletionHeaders });
+      assert.equal(response.status, 200);
+      const { flowId } = await response.json();
+      assert.match(flowId, /^[A-Za-z0-9_-]{43}$/);
+      return { flowId, cookie: response.headers.getSetCookie().find(cookie => cookie.startsWith(`DF_ACCOUNT_OAUTH_${flowId}=`)).split(";")[0] };
+    };
+    const abandoned = await startSocialReauth();
+    const unrelated = await startSocialReauth();
+    const socialComplete = await fetch(`${origin}/api/account/oauth/complete`, {
+      method: "POST", headers: { ...deletionHeaders, Cookie: `${deletionHeaders.Cookie}; ${unrelated.cookie}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ flowId: unrelated.flowId, handoff: "h".repeat(43) }),
+    });
+    assert.equal(socialComplete.status, 200);
+    assert.deepEqual(await socialComplete.json(), { next: `/account?status=reauthenticated&reauthFlow=${unrelated.flowId}` });
+    const socialCookies = socialComplete.headers.getSetCookie().filter(cookie => cookie.startsWith("DF_ACCOUNT_REAUTH"))
+      .map(cookie => cookie.split(";")[0]).join("; ");
+    for (const [flowId, expected] of [[abandoned.flowId, false], [unrelated.flowId, true]]) {
+      const status = await fetch(`${origin}/api/account/reauth/status?flowId=${flowId}`,
+        { headers: { Cookie: `${deletionHeaders.Cookie}; ${socialCookies}` } });
+      assert.deepEqual(await status.json(), { reauthenticated: expected });
+    }
+    const beforeMismatchedFlow = calls.length;
+    const mismatchedFlow = await deleteAccount({ ...deletionHeaders, Cookie: `${deletionHeaders.Cookie}; ${socialCookies}`,
+      "X-DevField-Deletion-Reauth-Flow": abandoned.flowId });
+    assert.equal(mismatchedFlow.status, 403);
+    assert.deepEqual(await mismatchedFlow.json(), { code: "deletion_reauth_flow_changed" });
+    assert.equal(calls.length, beforeMismatchedFlow);
+
+    const accepted = await deleteAccount({ ...deletionHeaders, Cookie: `${deletionHeaders.Cookie}; ${socialCookies}`,
+      "X-DevField-Deletion-Reauth-Flow": unrelated.flowId });
+    assert.equal(accepted.status, 202);
+    assert.deepEqual(await accepted.json(), { deletionStatus: "DELETING" });
+    assert.deepEqual(deleteCalls().at(-1).body, { reauthProof: "r".repeat(43) });
+    assert.match(accepted.headers.get("set-cookie") ?? "", /DF_ACCOUNT_REAUTH=;.*Path=\/api\/account.*Max-Age=0/i);
+    assert.doesNotMatch(accepted.headers.get("set-cookie") ?? "", /DF_WEB_SESSION_DEV|DF_CSRF_DEV/);
+    assert.match(accepted.headers.get("cache-control") ?? "", /no-store/);
+
+    const retryStart = calls.length;
+    const retryHeaders = await makeDeletionHeaders("deleting", true);
+    const retry = await deleteAccount({ ...retryHeaders, Cookie: `${retryHeaders.Cookie}; ${reauthCookie}`,
+      "X-DevField-Deletion-Retry": "1" });
+    assert.equal(retry.status, 202);
+    assert.equal(deleteCalls().at(-1).body, undefined);
+    assert.deepEqual(calls.slice(retryStart).map(call => [call.method, call.path]), [["DELETE", "/api/account/me"]]);
+
+    for (const [handle, expected] of [["completed", 204], ["revoked", 401], ["bad-service", 503], ["bad-delete-dto", 503]]) {
+      const response = await deleteAccount(await makeDeletionHeaders(handle, true));
+      assert.equal(response.status, expected);
+      const setCookie = response.headers.get("set-cookie") ?? "";
+      if (expected === 204 || expected === 401) {
+        assert.match(setCookie, /DF_WEB_SESSION_DEV=;/i);
+        assert.match(setCookie, /DF_CSRF_DEV=;/i);
+        assert.match(setCookie, /DF_ACCOUNT_REAUTH=;[^,]*Path=\/api\/account/i);
+        if (expected === 204) assert.equal(await response.text(), "");
+        else assert.deepEqual(await response.json(), { code: "invalid_session" });
+      } else assert.equal(setCookie, "");
+    }
+    const revokedStatus = await get("/api/account/me", "revoked");
+    assert.equal(revokedStatus.status, 401);
+    assert.match(revokedStatus.headers.get("set-cookie") ?? "", /DF_WEB_SESSION_DEV=;/i);
+
+    const uncertainHeaders = await makeDeletionHeaders("uncertain-deletion");
+    const uncertainStart = calls.length;
+    const uncertain = await deleteAccount(uncertainHeaders);
+    assert.equal(uncertain.status, 503);
+    assert.equal(uncertain.headers.get("set-cookie"), null);
+    assert.deepEqual(calls.slice(uncertainStart).map(call => [call.method, call.path]),
+      [["DELETE", "/api/account/me"], ["GET", "/api/account/me"]]);
+
+    const timeoutHeaders = await makeDeletionHeaders("timeout-deletion");
+    const beforeTimeout = calls.length;
+    const recovered = await deleteAccount(timeoutHeaders);
+    assert.equal(recovered.status, 202);
+    assert.deepEqual(await recovered.json(), { deletionStatus: "DELETING" });
+    assert.doesNotMatch(recovered.headers.get("set-cookie") ?? "", /DF_WEB_SESSION_DEV|DF_CSRF_DEV/);
+    assert.deepEqual(calls.slice(beforeTimeout).map(call => [call.method, call.path]),
+      [["DELETE", "/api/account/me"], ["GET", "/api/account/me"]]);
     assert.ok(!calls.some(call => call.path?.includes("userId=")));
     const anonymousCsrf = await get("/api/auth/csrf");
     const anonymousCookie = anonymousCsrf.headers.get("set-cookie")?.split(";")[0];

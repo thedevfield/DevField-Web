@@ -50,6 +50,17 @@ function signCsrf(seed: string, expires: number, handle: string | undefined) {
 
 export async function sessionHandle() { return (await cookies()).get(sessionName)?.value; }
 
+export function accountDeletionContext(handle: string) {
+  const key = process.env.DEVFIELD_BFF_SERVICE_KEY;
+  if (!key) throw new BffError(503, "web_configuration_error");
+  return createHmac("sha256", key).update("account-deletion:" + handle).digest("base64url");
+}
+
+export function matchesAccountDeletionContext(handle: string, context: string | null) {
+  if (!context || !/^[A-Za-z0-9_-]{43}$/.test(context)) return false;
+  return timingSafeEqual(Buffer.from(context), Buffer.from(accountDeletionContext(handle)));
+}
+
 export async function csrfIssue() {
   const jar = await cookies();
   const existing = jar.get(csrfName)?.value;
@@ -152,7 +163,11 @@ export async function authPost(path: string, body?: object, handle?: string, met
   if (response.status === 403 && data.code === "reauth_required") throw new BffError(403, "reauth_required");
   if ([400, 409, 410, 429, 503].includes(response.status) && typeof data.code === "string" && /^[a-z_]{1,50}$/.test(data.code))
     throw new BffError(response.status, data.code);
-  if (response.status === 401) throw new BffError(401, "invalid_session");
+  if (response.status === 401) {
+    if (method === "DELETE" && path === "/api/account/me" && data.code !== "invalid_session")
+      throw new BffError(503, "auth_unavailable");
+    throw new BffError(401, "invalid_session");
+  }
   if (response.status === 403) throw new BffError(403, "session_unavailable");
   throw new BffError(503, "auth_unavailable");
 }
@@ -188,9 +203,8 @@ export async function accountMe(): Promise<AccountProfile> {
       headers: { "X-DevField-Service": "bff", "X-DevField-Service-Key": key, "X-DevField-Session-Handle": handle },
     });
   } catch { throw new BffError(503, "auth_unavailable"); }
-  if (response.status === 401) throw new BffError(401, "invalid_session");
   if (response.status === 403) throw new BffError(403, "account_unavailable");
-  if (response.status !== 200) throw new BffError(503, "auth_unavailable");
+  if (response.status !== 200 && response.status !== 401) throw new BffError(503, "auth_unavailable");
   const length = Number(response.headers.get("content-length") ?? 0);
   if (!Number.isFinite(length) || length > 16_384) throw new BffError(503, "auth_unavailable");
   let data: unknown;
@@ -210,6 +224,8 @@ export async function accountMe(): Promise<AccountProfile> {
   } catch { throw new BffError(503, "auth_unavailable"); }
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new BffError(503, "auth_unavailable");
   const profile = data as Record<string, unknown>;
+  if (response.status === 401)
+    throw profile.code === "invalid_session" ? new BffError(401, "invalid_session") : new BffError(503, "auth_unavailable");
   if (typeof profile.userId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.userId) ||
     !(profile.displayName === null || typeof profile.displayName === "string") ||
     !(profile.email === null || typeof profile.email === "string") ||
@@ -246,8 +262,22 @@ export async function authEntryState(): Promise<"active" | "anonymous" | "forbid
 export async function setSession(handle: string) {
   const jar = await cookies();
   jar.set(sessionName, handle, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: 86400 });
-  jar.set("DF_ACCOUNT_REAUTH", "", { path: "/api/account", maxAge: 0 });
+  await clearAccountReauth();
   await csrfRotate();
+}
+
+const reauthCookieOptions = { httpOnly: true, secure, sameSite: "lax", path: "/api/account" } as const;
+
+export async function setAccountReauth(proof: string, flowId?: string) {
+  const jar = await cookies();
+  jar.set("DF_ACCOUNT_REAUTH", proof, { ...reauthCookieOptions, maxAge: 300 });
+  jar.set("DF_ACCOUNT_REAUTH_FLOW", flowId ?? "", { ...reauthCookieOptions, maxAge: flowId ? 300 : 0 });
+}
+
+export async function clearAccountReauth() {
+  const jar = await cookies();
+  jar.set("DF_ACCOUNT_REAUTH", "", { ...reauthCookieOptions, maxAge: 0 });
+  jar.set("DF_ACCOUNT_REAUTH_FLOW", "", { ...reauthCookieOptions, maxAge: 0 });
 }
 
 export async function clearSession() {
@@ -255,7 +285,7 @@ export async function clearSession() {
   jar.delete(sessionName);
   jar.delete(csrfName);
   jar.delete(process.env.NODE_ENV === "production" ? "__Host-DF_GITHUB_ATTEMPT" : "DF_GITHUB_ATTEMPT_DEV");
-  jar.set("DF_ACCOUNT_REAUTH", "", { path: "/api/account", maxAge: 0 });
+  await clearAccountReauth();
   for (const cookie of jar.getAll()) {
     if (cookie.name.startsWith("DF_ACCOUNT_OAUTH_")) jar.delete(cookie.name);
   }

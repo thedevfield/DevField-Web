@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { authPost, boundedJson, BffError, failed, guard, noStore, requireSession, stringField } from "@/lib/server/auth";
+import { authPost, boundedJson, BffError, failed, guard, noStore, requireSession, setAccountReauth, stringField } from "@/lib/server/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
     if (route === "REAUTH_COMPLETE") {
       const proof = result.data.reauthProof;
       if (typeof proof !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(proof)) throw new BffError(503, "auth_unavailable");
-      jar.set("DF_ACCOUNT_REAUTH", proof, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/api/account", maxAge: 300 });
+      await setAccountReauth(proof, flowId);
     }
     jar.delete(`DF_ACCOUNT_OAUTH_${flowId}`);
-    return noStore({ next: route === "LINK_COMPLETE" ? "/account?status=linked" : "/account?status=reauthenticated" });
+    return noStore({ next: route === "LINK_COMPLETE" ? "/account?status=linked" : `/account?status=reauthenticated&reauthFlow=${flowId}` });
   } catch (error) { return failed(error); }
 }
