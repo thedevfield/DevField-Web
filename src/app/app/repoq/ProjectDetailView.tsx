@@ -3,13 +3,15 @@ import Link from "next/link";
 import { Plus, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { analysisMessage, csrfToken, messageFor, responseData, statusText, urlsOf, type Member, type ProjectDetail } from "./project-ui";
+import { InterviewProjectPanel } from "./InterviewProjectPanel";
+import type { InterviewMode } from "@/lib/interview";
 import { AnalysisSnapshotView } from "./AnalysisSnapshotView";
 import { GitHubMark } from "./GitHubMark";
 import { RepositoryFields } from "./RepositoryFields";
 import { PrivateRepositoryPicker, privateEntries, type Choice } from "./PrivateRepositoryPicker";
 import styles from "./workspace.module.css";
 
-export function ProjectDetailView({ id, privateEnabled }: { id: string; privateEnabled: boolean }) {
+export function ProjectDetailView({ id, privateEnabled, interviewModes }: { id: string; privateEnabled: boolean; interviewModes: Record<InterviewMode, boolean> }) {
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -145,13 +147,10 @@ export function ProjectDetailView({ id, privateEnabled }: { id: string; privateE
         {project.repositories.some(m => m.visibility === "PRIVATE") && <p>Private 분석은 아직 지원하지 않습니다. Private가 포함된 구성은 Public 부분 결과로 게시하지 않습니다.</p>}
       </section>
       <section className={styles.card}><div className={styles.kicker}>PROJECT CONTEXT</div><h2>프로젝트 정보</h2>
-        <dl className={styles.metaList}><div><dt>프로젝트 ID</dt><dd>{project.id}</dd></div><div><dt>Repository</dt><dd>{project.repositories.length}개</dd></div><div><dt>분석 상태</dt><dd>{statusText[project.analysisStatus] ?? project.analysisStatus}</dd></div><div><dt>면접 가능</dt><dd>아직 불가</dd></div></dl>
+        <dl className={styles.metaList}><div><dt>프로젝트 ID</dt><dd>{project.id}</dd></div><div><dt>Repository</dt><dd>{project.repositories.length}개</dd></div><div><dt>분석 상태</dt><dd>{statusText[project.analysisStatus] ?? project.analysisStatus}</dd></div></dl>
       </section>
-      <section className={styles.card}><div className={styles.kicker}>PRACTICE / INTERVIEW</div><h2>연습과 모의면접</h2>
-        <p className={styles.help}>분석 결과와 면접 기능이 준비되면 이용할 수 있습니다. 현재 면접 질문이나 평가를 생성하지 않습니다.</p>
-        <div className={styles.actions}><button type="button" className={styles.secondary} disabled>자유연습 준비 중</button>
-          <button type="button" className={styles.secondary} disabled>모의면접 준비 중</button></div>
-      </section><Link className={styles.secondary} href="/app/repoq">← 프로젝트 목록</Link></aside></div></>}
+      <Link className={styles.secondary} href="/app/repoq">← 프로젝트 목록</Link></aside></div></>}
+    <InterviewProjectPanel key={id} projectId={id} project={project} modes={interviewModes} />
     {removeTarget && <div className={styles.dialogBackdrop}><div ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="remove-title" aria-describedby="remove-description">
       <h2 id="remove-title">Repository 연결을 제거할까요?</h2><p id="remove-description"><strong>{removeTarget.fullName ?? "차단된 Repository"}</strong>을 이 프로젝트에서 제거합니다. GitHub 원본 Repository는 삭제되지 않습니다.</p>
       <div className={styles.actions}><button type="button" className={styles.danger} disabled={busy} onClick={() => void remove()}>{busy ? "제거 중…" : "연결 제거"}</button>

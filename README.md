@@ -2,6 +2,10 @@
 
 Next.js 16 App Router / TypeScript Web BFF for DevField authentication. Email signup, verification, login, server-side session checks, logout, and OAuth handoff routes are implemented. Provider buttons remain unavailable until credentials and actual provider browser flows are verified.
 
+## RepoQ interviews
+
+`WEB_FREE_INTERVIEW_ENABLED` and `WEB_MOCK_INTERVIEW_ENABLED` are independent server-side flags. Both default to off and require the exact value `true` to enable. Configure `INTERVIEW_INTERNAL_URL` with the Interview service origin and use HTTPS or a protected internal transport in deployment. Enable the corresponding RepoQ Interview endpoints and workers before enabling either Web mode. The Project API capability flags retain their existing values. Interview start is authorized by the Interview service and Project X-01.
+
 ## Local run
 
 1. npm ci
